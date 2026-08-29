@@ -40,3 +40,6 @@ Desktop.ini
 
 # 本地日志
 *.log
+
+# 输出文件
+output

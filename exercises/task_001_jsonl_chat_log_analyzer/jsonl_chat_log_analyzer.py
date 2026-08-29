@@ -1,11 +1,10 @@
 import json
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Generator, Optional
 
 
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
-path = BASE_PATH / "data"
 
 
 class InvalidMessageError(Exception):
@@ -44,11 +43,14 @@ class ValidData:
 
 @dataclass
 class Statistical_Result:
-    line_number: int
-    line: dict
+    total_messages: int
+    conversation_count: int
+    messages_by_role: dict
+    total_characters: int
 
 
 def read_jsonl(path: Path | str) -> Generator[ValidData, None, None]:
+    path = Path(path)
     if not path.exists():
         raise FileNotFoundError("该路径下文件不存在")
     with open(path, encoding="utf-8") as f:
@@ -67,5 +69,48 @@ def read_jsonl(path: Path | str) -> Generator[ValidData, None, None]:
             yield valid
 
 
-def statistical_data(valid: ValidData) -> dict[str, int]:
-    
+def statistical_data(valid: ValidData) -> dict[str, object]:
+    data = list(valid)
+    total_messages = len(data)
+    conversation_value = []
+    role_value = []
+    content_value = []
+    for i in range(len(data)):
+        conversation_value.append(data[i].conversation_id)
+        role_value.append(data[i].role)
+        content_value.append(data[i].content)
+    conversation_count = len(set(conversation_value))
+    system_count = 0
+    user_count = 0
+    assistant_count = 0
+    for i in role_value:
+        if i == "system":
+            system_count += 1
+        if i == "user":
+            user_count += 1
+        if i == "assistant":
+            assistant_count += 1
+    messages_by_role = {
+        "system_count": system_count,
+        "user_count": user_count,
+        "assistant_count": assistant_count
+    }
+    total_characters = sum(len(i) for i in content_value)
+    return Statistical_Result(
+        total_messages=total_messages,
+        conversation_count=conversation_count,
+        messages_by_role=messages_by_role,
+        total_characters=total_characters
+    )
+
+
+def main(input_path: Path, output_path: Path) -> None:
+    valid_data = read_jsonl(input_path)
+    statistical_result = statistical_data(valid_data)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(asdict(statistical_result), f, ensure_ascii=False)
+
+data = read_jsonl("data/task_001_valid.jsonl")
+for i in data:
+    print(asdict(i))
