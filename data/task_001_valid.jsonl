@@ -1,5 +1,0 @@
-{"conversation_id": "01", "role":"system", "content": "第一个示例"}
-{"conversation_id": "02", "role":"user", "content": "123"}
-
-
-{"conversation_id": "03", "role":"assistant", "content": "第三个示例"}
