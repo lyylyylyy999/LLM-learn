@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from typing import Generator, Optional
+from typing import Generator
 
 
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
@@ -13,31 +13,31 @@ class InvalidMessageError(Exception):
 
 @dataclass
 class ValidData:
-    conversation_id: Optional[str] = None
-    role: Optional[str] = None
-    content: Optional[str] = None
+    conversation_id: str
+    role: str
+    content: str
 
     def __post_init__(self):
-        if self.conversation_id is None:
-            raise ValueError("conversation_id 字段缺失")
-        if self.role is None:
-            raise ValueError("role 字段缺失")
-        if self.content is None:
-            raise ValueError("content 字段缺失")
         if not isinstance(self.conversation_id, str):
-            raise InvalidMessageError(f"conversation_id 必须为 str 类型，实际为{type(self.conversation_id)}")
+            raise InvalidMessageError(
+                f"conversation_id 必须为 str 类型，实际为 {type(self.conversation_id).__name__}"
+            )
         if not isinstance(self.role, str):
-            raise InvalidMessageError(f"role 必须为 str 类型，实际为{type(self.role)}")
+            raise InvalidMessageError(
+                f"role 必须为 str 类型，实际为 {type(self.role).__name__}"
+            )
         if not isinstance(self.content, str):
-            raise InvalidMessageError(f"content 必须为 str 类型，实际为{type(self.content)}")
+            raise InvalidMessageError(
+                f"content 必须为 str 类型，实际为 {type(self.content).__name__}"
+            )
         role_valid = ["system", "user", "assistant"]
         if self.role not in role_valid:
             raise InvalidMessageError("role 只能是 `system`、`user` 或 `assistant`")
         for name, value in [
             ("conversation_id", self.conversation_id),
-            ("content", self.content)
+            ("content", self.content),
         ]:
-            if not value:
+            if not value.strip():
                 raise InvalidMessageError(f"{name} 不能为空")
 
 
@@ -52,7 +52,7 @@ class Statistical_Result:
 def read_jsonl(path: Path | str) -> Generator[ValidData, None, None]:
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError("该路径下文件不存在")
+        raise FileNotFoundError("输入文件不存在")
     with open(path, encoding="utf-8") as f:
         for line_number, line in enumerate(f, start=1):
             if line.strip() == "":
@@ -64,44 +64,53 @@ def read_jsonl(path: Path | str) -> Generator[ValidData, None, None]:
             if not isinstance(data, dict):
                 raise InvalidMessageError(f"在第{line_number}行是非对象 JSON")
             try:
+                for field_name in (
+                    "conversation_id",
+                    "role",
+                    "content",
+                ):
+                    if field_name not in data:
+                        raise ValueError(f"{field_name} 字段缺失")
                 valid = ValidData(**data)
             except (ValueError, InvalidMessageError) as e:
                 raise InvalidMessageError(f"第 {line_number} 行数据无效: {e}") from e
             yield valid
 
 
-def statistical_data(valid: ValidData) -> Statistical_Result:
+def statistical_data(valid: Generator[ValidData, None, None]) -> Statistical_Result:
     data = list(valid)
     total_messages = len(data)
     conversation_value = []
     role_value = []
     content_value = []
-    for i in range(len(data)):
-        conversation_value.append(data[i].conversation_id)
-        role_value.append(data[i].role)
-        content_value.append(data[i].content)
+    for index in range(len(data)):
+        conversation_value.append(data[index].conversation_id)
+        role_value.append(data[index].role)
+        content_value.append(data[index].content)
     conversation_count = len(set(conversation_value))
     system_count = 0
     user_count = 0
     assistant_count = 0
-    for i in role_value:
-        if i == "system":
+    for role in role_value:
+        if role == "system":
             system_count += 1
-        if i == "user":
+        if role == "user":
             user_count += 1
-        if i == "assistant":
+        if role == "assistant":
             assistant_count += 1
     messages_by_role = {
         "system_count": system_count,
         "user_count": user_count,
-        "assistant_count": assistant_count
+        "assistant_count": assistant_count,
     }
-    total_characters = sum(len(i) for i in content_value)
+    total_characters = 0
+    for content in content_value:
+        total_characters = total_characters + len(content)
     return Statistical_Result(
         total_messages=total_messages,
         conversation_count=conversation_count,
         messages_by_role=messages_by_role,
-        total_characters=total_characters
+        total_characters=total_characters,
     )
 
 
