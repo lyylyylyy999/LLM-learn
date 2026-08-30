@@ -55,6 +55,8 @@ def read_jsonl(path: Path | str) -> Generator[ValidData, None, None]:
         raise FileNotFoundError("该路径下文件不存在")
     with open(path, encoding="utf-8") as f:
         for line_number, line in enumerate(f, start=1):
+            if line.strip() == "":
+                continue
             try:
                 data = json.loads(line)
             except json.JSONDecodeError as e:
@@ -65,11 +67,10 @@ def read_jsonl(path: Path | str) -> Generator[ValidData, None, None]:
                 valid = ValidData(**data)
             except (ValueError, InvalidMessageError) as e:
                 raise InvalidMessageError(f"第 {line_number} 行数据无效: {e}") from e
-
             yield valid
 
 
-def statistical_data(valid: ValidData) -> dict[str, object]:
+def statistical_data(valid: ValidData) -> Statistical_Result:
     data = list(valid)
     total_messages = len(data)
     conversation_value = []
@@ -110,7 +111,3 @@ def main(input_path: Path, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(asdict(statistical_result), f, ensure_ascii=False)
-
-data = read_jsonl("data/task_001_valid.jsonl")
-for i in data:
-    print(asdict(i))

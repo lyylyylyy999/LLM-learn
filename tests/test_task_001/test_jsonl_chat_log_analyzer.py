@@ -21,7 +21,17 @@ def test_valid_jsonl(tmp_path) -> None:
     assert asdict(data_a[0]) == {"conversation_id": "01", "role":"system", "content": "第一个示例"}
     assert asdict(data_a[1]) == {"conversation_id": "02", "role":"user", "content": "第二个示例"}
     assert asdict(data_a[2]) == {"conversation_id": "03", "role":"assistant", "content": "第三个示例"}
-
+    data = read_jsonl(path)
+    result = statistical_data(data)
+    assert asdict(result)["total_messages"] == 3
+    assert asdict(result)["conversation_count"] == 3
+    assert asdict(result)["messages_by_role"] == {
+        "system_count": 1,
+        "user_count": 1,
+        "assistant_count": 1,
+    }
+    assert asdict(result)["total_characters"] == 15
+    
 
 def test_invalid_jsonl(tmp_path) -> None:
     path = tmp_path / "data.jsonl"
