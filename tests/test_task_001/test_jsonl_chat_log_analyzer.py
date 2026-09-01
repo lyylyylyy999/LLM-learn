@@ -73,11 +73,19 @@ BASE_PATH = Path(__file__).resolve().parent.parent.parent
             {"system": 0, "user": 0, "assistant": 0},
             0,
         ),
+        (
+            [],
+            [],
+            0,
+            0,
+            {"system": 0, "user": 0, "assistant": 0},
+            0,
+        ),
     ],
 )
 def test_valid_jsonl(
     tmp_path: Path,
-    data: list[dict[str, str]],
+    data: list[object],
     result: list[dict[str, str]],
     total_messages: int,
     conversation_count: int,
@@ -111,7 +119,11 @@ def test_main(tmp_path: Path) -> None:
     input_path = tmp_path / "data.jsonl"
     output_path = tmp_path / "test.jsonl"
     with open(input_path, "w", encoding="utf-8") as f:
-        json.dump({"conversation_id": "01", "role": "system", "content": "第一个示例"}, f, ensure_ascii=False)
+        json.dump(
+            {"conversation_id": "01", "role": "system", "content": "第一个示例"},
+            f,
+            ensure_ascii=False,
+        )
     main(input_path, output_path)
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
@@ -119,14 +131,12 @@ def test_main(tmp_path: Path) -> None:
     assert data["conversation_count"] == 1
     assert data["messages_by_role"] == {"system": 1, "user": 0, "assistant": 0}
     assert data["total_characters"] == 5
-        
+
 
 def test_chinese_not_escaped(tmp_path: Path) -> None:
     path = tmp_path / "data.json"
 
-    data = {
-        "content": "你好世界"
-    }
+    data = {"content": "你好世界"}
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
@@ -168,7 +178,11 @@ def test_same_input_path_and_output_path(tmp_path: Path) -> None:
     input_path = tmp_path / "data.jsonl"
     output_path = tmp_path / "data.jsonl"
     with open(input_path, "w", encoding="utf-8") as f:
-        json.dump({"conversation_id": "01", "role": "system", "content": "第一个示例"}, f, ensure_ascii=False)
+        json.dump(
+            {"conversation_id": "01", "role": "system", "content": "第一个示例"},
+            f,
+            ensure_ascii=False,
+        )
     with pytest.raises(InvalidMessageError, match="输入路径和输出路径不能够相同！"):
         main(input_path, output_path)
     with open(input_path, encoding="utf-8") as f:
@@ -195,12 +209,17 @@ def test_same_input_path_and_output_path(tmp_path: Path) -> None:
             "role 字段缺失",
         ),
         (
-            {"conversation_id": "01", "content": "role 缺失"},
+            {"role": "user", "content": "role 缺失"},
             InvalidMessageError,
-            "role 字段缺失",
+            "conversation_id 字段缺失",
         ),
         (
-            {"conversation_id": "123", "role": "system", "content": "字段类型错误", "age": 23},
+            {
+                "conversation_id": "123",
+                "role": "system",
+                "content": "字段类型错误",
+                "age": 23,
+            },
             InvalidMessageError,
             "第1行数据无效: 存在额外字段: age",
         ),
@@ -234,6 +253,11 @@ def test_same_input_path_and_output_path(tmp_path: Path) -> None:
             InvalidMessageError,
             "第1行数据无效: conversation_id 不能为空",
         ),
+        (
+            {"conversation_id": "\t", "role": "user", "content": "convwesation 为空白"},
+            InvalidMessageError,
+            "第1行数据无效: conversation_id 不能为空",
+        ),
     ],
 )
 def test_business_exception(
@@ -248,13 +272,26 @@ def test_business_exception(
     assert not output_path.exists()
 
 
+def test_output_exit_with_business_exception(tmp_path: Path) -> None:
+    path = tmp_path / "data.jsonl"
+    output_path = tmp_path / "test.json"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(json.dumps({"conversation_id": "01", "role": "user", "content": "  "}, ensure_ascii=False) + "\n")
+    with open(output_path, "w", encoding="utf-8") as f:
+          json.dump(
+            {"conversation_id": "01", "role": "system", "content": "第一个示例"},
+            f,
+            ensure_ascii=False,
+        )
+    with pytest.raises(InvalidMessageError, match="第1行数据无效: content 不能为空"):
+        main(path, output_path)
+    with open(output_path, encoding="utf-8") as f:
+        data_output = json.load(f)
+        assert data_output == {"conversation_id": "01", "role": "system", "content": "第一个示例"}
+
+
 def test_file_no_exist(tmp_path: Path) -> None:
     path = BASE_PATH / "yannis.json"
     output_path = tmp_path / "test.json"
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write('{"conversation_id": "01", "role": "system", "content": "第一个示例"}')
-    with open(output_path, encoding="utf-8") as f:
-        data = json.load(f)
     with pytest.raises(FileNotFoundError, match="输入文件不存在"):
         main(path, output_path)
-    assert data == {"conversation_id": "01", "role": "system", "content": "第一个示例"}

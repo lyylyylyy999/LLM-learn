@@ -42,7 +42,7 @@ class ValidData:
 class StatisticalResult:
     total_messages: int
     conversation_count: int
-    messages_by_role: dict
+    messages_by_role: dict[str, int]
     total_characters: int
 
 
@@ -78,14 +78,14 @@ def read_jsonl(path: Path | str) -> Generator[ValidData, None, None]:
 
 def statistical_data(valid: Iterable[ValidData]) -> StatisticalResult:
     total_messages = 0
-    conversation_ids = []
+    conversation_ids: set[str] = set()
     system_count = 0
     user_count = 0
     assistant_count = 0
     total_characters = 0
     for message in valid:
         total_messages += 1
-        conversation_ids.append(message.conversation_id)
+        conversation_ids.add(message.conversation_id)
         if message.role == "system":
             system_count += 1
         if message.role == "user":
@@ -98,7 +98,7 @@ def statistical_data(valid: Iterable[ValidData]) -> StatisticalResult:
         "user": user_count,
         "assistant": assistant_count,
     }
-    conversation_count = len(set(conversation_ids))
+    conversation_count = len(conversation_ids)
     return StatisticalResult(
         total_messages=total_messages,
         conversation_count=conversation_count,
@@ -111,8 +111,7 @@ def main(input_path: Path, output_path: Path) -> None:
     if input_path.resolve() == output_path.resolve():
         raise InvalidMessageError("输入路径和输出路径不能够相同！")
     valid_data = read_jsonl(input_path)
-    valid_data_list = list(valid_data)
-    StatisticalResult = statistical_data(valid_data_list)
+    statistical_result = statistical_data(valid_data)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(asdict(StatisticalResult), f, ensure_ascii=False)
+        json.dump(asdict(statistical_result), f, ensure_ascii=False)
