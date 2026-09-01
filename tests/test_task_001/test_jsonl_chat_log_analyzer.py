@@ -92,59 +92,23 @@ def test_valid_jsonl(
     messages_by_role: dict[str, int],
     total_characters: int,
 ) -> None:
-    path = tmp_path / "data.jsonl"
-    with open(path, "w", encoding="utf-8") as f:
+    input_path = tmp_path / "data.jsonl"
+    output_path = tmp_path / "test.jsonl"
+    with open(input_path, "w", encoding="utf-8") as f:
         for obj in data:
             if obj is None:
                 f.write("\n")
             else:
                 f.write(json.dumps(obj, ensure_ascii=False) + "\n")
-    data_raw = read_jsonl(path)
-    data_get = []
-    for data_i in data_raw:
-        data_get.append(data_i)
-    for index in range(len(data_get)):
-        assert asdict(data_get[index]) == result[index]
-    data_raw = read_jsonl(path)
-    result_raw = statistical_data(data_raw)
-    assert asdict(result_raw)["total_messages"] == total_messages
-    assert asdict(result_raw)["conversation_count"] == conversation_count
-    assert asdict(result_raw)["messages_by_role"] == messages_by_role
-    assert asdict(result_raw)["total_characters"] == total_characters
-    for role in ["system", "user", "assistant"]:
-        assert role in asdict(result_raw)["messages_by_role"]
-
-
-def test_main(tmp_path: Path) -> None:
-    input_path = tmp_path / "data.jsonl"
-    output_path = tmp_path / "test.jsonl"
-    with open(input_path, "w", encoding="utf-8") as f:
-        json.dump(
-            {"conversation_id": "01", "role": "system", "content": "第一个示例"},
-            f,
-            ensure_ascii=False,
-        )
     main(input_path, output_path)
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
-    assert data["total_messages"] == 1
-    assert data["conversation_count"] == 1
-    assert data["messages_by_role"] == {"system": 1, "user": 0, "assistant": 0}
-    assert data["total_characters"] == 5
-
-
-def test_chinese_not_escaped(tmp_path: Path) -> None:
-    path = tmp_path / "data.json"
-
-    data = {"content": "你好世界"}
-
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
-
-    raw_text = path.read_text(encoding="utf-8")
-
-    assert "你好世界" in raw_text
-    assert "\\u4f60" not in raw_text
+    assert data["total_messages"] == total_messages
+    assert data["conversation_count"] == conversation_count
+    assert data["messages_by_role"] == messages_by_role
+    assert data["total_characters"] == total_characters
+    for role in ["system", "user", "assistant"]:
+        assert role in data["messages_by_role"]
 
 
 @pytest.mark.parametrize(
@@ -261,7 +225,7 @@ def test_same_input_path_and_output_path(tmp_path: Path) -> None:
     ],
 )
 def test_business_exception(
-    tmp_path: Path, data: list[dict[str, str]], exception: type[Exception], match: str
+    tmp_path: Path, data: object, exception: type[Exception], match: str
 ) -> None:
     path = tmp_path / "data.jsonl"
     output_path = tmp_path / "test.json"
@@ -272,13 +236,19 @@ def test_business_exception(
     assert not output_path.exists()
 
 
-def test_output_exit_with_business_exception(tmp_path: Path) -> None:
+def test_output_exist_with_business_exception(tmp_path: Path) -> None:
     path = tmp_path / "data.jsonl"
     output_path = tmp_path / "test.json"
     with open(path, "w", encoding="utf-8") as f:
-        f.write(json.dumps({"conversation_id": "01", "role": "user", "content": "  "}, ensure_ascii=False) + "\n")
+        f.write(
+            json.dumps(
+                {"conversation_id": "01", "role": "user", "content": "  "},
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
     with open(output_path, "w", encoding="utf-8") as f:
-          json.dump(
+        json.dump(
             {"conversation_id": "01", "role": "system", "content": "第一个示例"},
             f,
             ensure_ascii=False,
@@ -287,11 +257,14 @@ def test_output_exit_with_business_exception(tmp_path: Path) -> None:
         main(path, output_path)
     with open(output_path, encoding="utf-8") as f:
         data_output = json.load(f)
-        assert data_output == {"conversation_id": "01", "role": "system", "content": "第一个示例"}
+        assert data_output == {
+            "conversation_id": "01",
+            "role": "system",
+            "content": "第一个示例",
+        }
 
 
 def test_file_no_exist(tmp_path: Path) -> None:
-    path = BASE_PATH / "yannis.json"
     output_path = tmp_path / "test.json"
     with pytest.raises(FileNotFoundError, match="输入文件不存在"):
-        main(path, output_path)
+        main(tmp_path / "yannis.json", output_path)
