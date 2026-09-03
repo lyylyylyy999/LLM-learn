@@ -11,8 +11,8 @@ T = TypeVar("T")
 
 class RetryExhaustedError(Exception):
     def __init__(self, attempts, last_error):
-        self.attempts = attempts
-        self.last_error = last_error
+        self.attempts: int = attempts
+        self.last_error: Exception = last_error
         super().__init__(f"重试 {attempts} 次后仍然失败，最后一次异常：{last_error}")
 
 
@@ -70,12 +70,12 @@ def execute_with_retry(
             if isinstance(e, policy.retryable_exceptions):
                 if i < policy.max_attempts:
                     logger.warning(
-                        f"当前尝试次数为 {i},最大尝试次数为 {policy.max_attempts},异常信息为{e}"
+                        f"当前尝试次数为 {i},最大尝试次数为 {policy.max_attempts},异常信息为{type(e).__name__}: {e}"
                     )
                     sleep_func(policy.delay_seconds)
                 else:
                     logger.error(
-                        f"当前已达到最大尝试次数 {policy.max_attempts},最后一次异常信息为{e}"
+                        f"当前已达到最大尝试次数 {policy.max_attempts},最后一次异常信息为{type(e).__name__}: {e}"
                     )
                     raise RetryExhaustedError(policy.max_attempts, e) from e
             else:

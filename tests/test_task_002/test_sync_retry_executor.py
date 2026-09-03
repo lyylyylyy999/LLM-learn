@@ -32,11 +32,11 @@ def test_fail_after_success(caplog: pytest.LogCaptureFixture) -> None:
     warning_log = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
     assert len(warning_log) == 2
     assert (
-        "当前尝试次数为 1,最大尝试次数为 5,异常信息为超时"
+        "当前尝试次数为 1,最大尝试次数为 5,异常信息为TimeoutError: 超时"
         in caplog.records[0].getMessage()
     )
     assert (
-        "当前尝试次数为 2,最大尝试次数为 5,异常信息为超时"
+        "当前尝试次数为 2,最大尝试次数为 5,异常信息为TimeoutError: 超时"
         in caplog.records[1].getMessage()
     )
     assert sleep_mock.call_count == 2
@@ -65,19 +65,19 @@ def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
     assert len(warning_log) == 3
     assert len(error_log) == 1
     assert (
-        "当前尝试次数为 1,最大尝试次数为 4,异常信息为超时"
+        "当前尝试次数为 1,最大尝试次数为 4,异常信息为TimeoutError: 超时"
         in caplog.records[0].getMessage()
     )
     assert (
-        "当前尝试次数为 2,最大尝试次数为 4,异常信息为超时"
+        "当前尝试次数为 2,最大尝试次数为 4,异常信息为TimeoutError: 超时"
         in caplog.records[1].getMessage()
     )
     assert (
-        "当前尝试次数为 3,最大尝试次数为 4,异常信息为连接错误"
+        "当前尝试次数为 3,最大尝试次数为 4,异常信息为ConnectionError: 连接错误"
         in caplog.records[2].getMessage()
     )
     assert (
-        "当前已达到最大尝试次数 4,最后一次异常信息为连接错误"
+        "当前已达到最大尝试次数 4,最后一次异常信息为ConnectionError: 连接错误"
         in caplog.records[3].getMessage()
     )
     err = exc_info.value
@@ -101,7 +101,7 @@ def test_not_allowed_exception(caplog: pytest.LogCaptureFixture) -> None:
     warning_log = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
     assert len(warning_log) == 1
     assert (
-        "当前尝试次数为 1,最大尝试次数为 4,异常信息为超时"
+        "当前尝试次数为 1,最大尝试次数为 4,异常信息为TimeoutError: 超时"
         in caplog.records[0].getMessage()
     )
     assert sleep_mock.call_count == 1
@@ -140,7 +140,7 @@ def test_max_attempts_abnormal(caplog: pytest.LogCaptureFixture) -> None:
     error_log = [rec for rec in caplog.records if rec.levelno == logging.ERROR]
     assert len(error_log) == 1
     assert (
-        "当前已达到最大尝试次数 1,最后一次异常信息为超时"
+        "当前已达到最大尝试次数 1,最后一次异常信息为TimeoutError: 超时"
         in caplog.records[0].getMessage()
     )
     err = exc_info.value
