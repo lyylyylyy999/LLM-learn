@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import logging
 from typing import Callable, TypeVar
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
@@ -58,9 +59,11 @@ def execute_with_retry(
     sleep_func: Callable[[float], None] = time.sleep,
 ) -> T:
     for i in range(1, policy.max_attempts + 1):
-        logger.info(f"第{i}次尝试")
         try:
-            return operation()
+            result = operation()
+            if i == 1:
+                logger.info("首次尝试就成功")
+            return result
         except Exception as e:
             if isinstance(e, policy.retryable_exceptions):
                 if i < policy.max_attempts:

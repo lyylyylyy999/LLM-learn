@@ -24,16 +24,16 @@ def test_fail_after_success(caplog: pytest.LogCaptureFixture) -> None:
     result = execute_with_retry(mock, policy)
     assert mock.call_count == 3
     assert result == "ok"
-    assert len(caplog.records) == 5
+    assert len(caplog.records) == 2
     warning_log = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
     assert len(warning_log) == 2
     assert (
         "当前尝试次数为 1,最大尝试次数为 5,异常信息为超时"
-        in caplog.records[1].getMessage()
+        in caplog.records[0].getMessage()
     )
     assert (
         "当前尝试次数为 2,最大尝试次数为 5,异常信息为超时"
-        in caplog.records[3].getMessage()
+        in caplog.records[1].getMessage()
     )
 
 
@@ -53,26 +53,26 @@ def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
     ) as exc_info:
         execute_with_retry(mock, policy)
     assert mock.call_count == 4
-    assert len(caplog.records) == 8
+    assert len(caplog.records) == 4
     warning_log = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
     error_log = [rec for rec in caplog.records if rec.levelno == logging.ERROR]
     assert len(warning_log) == 3
     assert len(error_log) == 1
     assert (
         "当前尝试次数为 1,最大尝试次数为 4,异常信息为超时"
-        in caplog.records[1].getMessage()
+        in caplog.records[0].getMessage()
     )
     assert (
         "当前尝试次数为 2,最大尝试次数为 4,异常信息为超时"
-        in caplog.records[3].getMessage()
+        in caplog.records[1].getMessage()
     )
     assert (
         "当前尝试次数为 3,最大尝试次数为 4,异常信息为连接错误"
-        in caplog.records[5].getMessage()
+        in caplog.records[2].getMessage()
     )
     assert (
         "当前已达到最大尝试次数 4,最后一次异常信息为连接错误"
-        in caplog.records[7].getMessage()
+        in caplog.records[3].getMessage()
     )
     err = exc_info.value
     assert err.attempts == 4
@@ -89,12 +89,12 @@ def test_not_allowed_exception(caplog: pytest.LogCaptureFixture) -> None:
     with pytest.raises(TypeError, match="类型错误"):
         execute_with_retry(mock, policy)
     assert mock.call_count == 2
-    assert len(caplog.records) == 3
+    assert len(caplog.records) == 1
     warning_log = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
     assert len(warning_log) == 1
     assert (
         "当前尝试次数为 1,最大尝试次数为 4,异常信息为超时"
-        in caplog.records[1].getMessage()
+        in caplog.records[0].getMessage()
     )
 
 
@@ -124,12 +124,12 @@ def test_max_attempts_abnormal(caplog: pytest.LogCaptureFixture) -> None:
     ) as exc_info:
         execute_with_retry(mock, policy)
     assert mock.call_count == 1
-    assert len(caplog.records) == 2
+    assert len(caplog.records) == 1
     error_log = [rec for rec in caplog.records if rec.levelno == logging.ERROR]
     assert len(error_log) == 1
     assert (
         "当前已达到最大尝试次数 1,最后一次异常信息为超时"
-        in caplog.records[1].getMessage()
+        in caplog.records[0].getMessage()
     )
     err = exc_info.value
     assert err.attempts == 1
