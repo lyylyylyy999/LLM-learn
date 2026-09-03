@@ -11,17 +11,20 @@ from exercises.task_002_retry_executor.sync_retry_executor import (
 def test_one_call_success(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
     mock = Mock(side_effect=["ok"])
+    sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=5, delay_seconds=2)
-    result = execute_with_retry(mock, policy)
+    result = execute_with_retry(mock, policy, sleep_mock)
     assert result == "ok"
     assert len(caplog.records) == 1
+    assert sleep_mock.call_count == 0
 
 
 def test_fail_after_success(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
     mock = Mock(side_effect=[TimeoutError("超时"), TimeoutError("超时"), "ok"])
+    sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=5, delay_seconds=0)
-    result = execute_with_retry(mock, policy)
+    result = execute_with_retry(mock, policy, sleep_mock)
     assert mock.call_count == 3
     assert result == "ok"
     assert len(caplog.records) == 2
@@ -35,6 +38,7 @@ def test_fail_after_success(caplog: pytest.LogCaptureFixture) -> None:
         "当前尝试次数为 2,最大尝试次数为 5,异常信息为超时"
         in caplog.records[1].getMessage()
     )
+    assert sleep_mock.call_count == 2
 
 
 def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
@@ -47,11 +51,12 @@ def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
             ConnectionError("连接错误"),
         ]
     )
+    sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=4, delay_seconds=0)
     with pytest.raises(
         RetryExhaustedError, match="重试 4 次后仍然失败，最后一次异常：连接错误"
     ) as exc_info:
-        execute_with_retry(mock, policy)
+        execute_with_retry(mock, policy, sleep_mock)
     assert mock.call_count == 4
     assert len(caplog.records) == 4
     warning_log = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
@@ -80,14 +85,16 @@ def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
     assert str(err.last_error) == "连接错误"
     assert isinstance(err.__cause__, ConnectionError)
     assert str(err.__cause__) == "连接错误"
+    assert sleep_mock.call_count == 3
 
 
 def test_not_allowed_exception(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
     mock = Mock(side_effect=[TimeoutError("超时"), TypeError("类型错误")])
+    sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=4, delay_seconds=0)
     with pytest.raises(TypeError, match="类型错误"):
-        execute_with_retry(mock, policy)
+        execute_with_retry(mock, policy, sleep_mock)
     assert mock.call_count == 2
     assert len(caplog.records) == 1
     warning_log = [rec for rec in caplog.records if rec.levelno == logging.WARNING]
@@ -96,14 +103,17 @@ def test_not_allowed_exception(caplog: pytest.LogCaptureFixture) -> None:
         "当前尝试次数为 1,最大尝试次数为 4,异常信息为超时"
         in caplog.records[0].getMessage()
     )
+    assert sleep_mock.call_count == 1
 
 
 def test_max_attempts_normal() -> None:
     mock = Mock(side_effect=["ok"])
+    sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=1, delay_seconds=0)
-    result = execute_with_retry(mock, policy)
+    result = execute_with_retry(mock, policy, sleep_mock)
     assert result == "ok"
     assert mock.call_count == 1
+    assert sleep_mock.call_count == 0
 
 
 def test_same_object() -> None:
@@ -118,11 +128,12 @@ def test_same_object() -> None:
 def test_max_attempts_abnormal(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
     mock = Mock(side_effect=[TimeoutError("超时"), "ok"])
+    sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=1, delay_seconds=0)
     with pytest.raises(
         RetryExhaustedError, match="重试 1 次后仍然失败，最后一次异常：超时"
     ) as exc_info:
-        execute_with_retry(mock, policy)
+        execute_with_retry(mock, policy, sleep_mock)
     assert mock.call_count == 1
     assert len(caplog.records) == 1
     error_log = [rec for rec in caplog.records if rec.levelno == logging.ERROR]
@@ -137,6 +148,7 @@ def test_max_attempts_abnormal(caplog: pytest.LogCaptureFixture) -> None:
     assert str(err.last_error) == "超时"
     assert isinstance(err.__cause__, TimeoutError)
     assert str(err.__cause__) == "超时"
+    assert sleep_mock.call_count == 0
 
 
 @pytest.mark.parametrize(
