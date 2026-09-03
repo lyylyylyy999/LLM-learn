@@ -48,14 +48,14 @@ def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
         side_effect=[
             TimeoutError("超时"),
             TimeoutError("超时"),
-            ConnectionError("连接错误"),
+            ConnectionResetError("网络连接错误"),
             ConnectionError("连接错误"),
         ]
     )
     sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=4, delay_seconds=0)
     with pytest.raises(
-        RetryExhaustedError, match="重试 4 次后仍然失败，最后一次异常：连接错误"
+        RetryExhaustedError, match="重试 4 次后仍然失败，最后一次异常为ConnectionError: 连接错误"
     ) as exc_info:
         execute_with_retry(mock, policy, sleep_mock)
     assert mock.call_count == 4
@@ -73,7 +73,7 @@ def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
         in caplog.records[1].getMessage()
     )
     assert (
-        "当前尝试次数为 3,最大尝试次数为 4,异常信息为ConnectionError: 连接错误"
+        "当前尝试次数为 3,最大尝试次数为 4,异常信息为ConnectionResetError: 网络连接错误"
         in caplog.records[2].getMessage()
     )
     assert (
@@ -87,6 +87,17 @@ def test_all_fail(caplog: pytest.LogCaptureFixture) -> None:
     assert isinstance(err.__cause__, ConnectionError)
     assert str(err.__cause__) == "连接错误"
     assert sleep_mock.call_count == 3
+
+
+def test_frist_not_allowed_exception(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    mock = Mock(side_effect=[TypeError("类型错误")])
+    sleep_mock = Mock()
+    policy = RetryPolicy(max_attempts=4, delay_seconds=0)
+    with pytest.raises(TypeError, match="类型错误"):
+        execute_with_retry(mock, policy, sleep_mock)
+    assert mock.call_count == 1
+    assert sleep_mock.call_count == 0
 
 
 def test_not_allowed_exception(caplog: pytest.LogCaptureFixture) -> None:
@@ -132,7 +143,7 @@ def test_max_attempts_abnormal(caplog: pytest.LogCaptureFixture) -> None:
     sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=1, delay_seconds=0)
     with pytest.raises(
-        RetryExhaustedError, match="重试 1 次后仍然失败，最后一次异常：超时"
+        RetryExhaustedError, match="重试 1 次后仍然失败，最后一次异常为TimeoutError: 超时"
     ) as exc_info:
         execute_with_retry(mock, policy, sleep_mock)
     assert mock.call_count == 1
@@ -152,11 +163,44 @@ def test_max_attempts_abnormal(caplog: pytest.LogCaptureFixture) -> None:
     assert sleep_mock.call_count == 0
 
 
+def test_no_message_exception(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    mock = Mock(side_effect=[TimeoutError, "ok"])
+    sleep_mock = Mock()
+    policy = RetryPolicy(max_attempts=1, delay_seconds=0)
+    with pytest.raises(
+        RetryExhaustedError, match="重试 1 次后仍然失败，最后一次异常为TimeoutError"
+    ) as exc_info:
+        execute_with_retry(mock, policy, sleep_mock)
+    assert mock.call_count == 1
+    assert len(caplog.records) == 1
+    error_log = [rec for rec in caplog.records if rec.levelno == logging.ERROR]
+    assert len(error_log) == 1
+    assert (
+        "当前已达到最大尝试次数 1,最后一次异常信息为TimeoutError"
+        in caplog.records[0].getMessage()
+    )
+    err = exc_info.value
+    assert err.attempts == 1
+    assert isinstance(err.last_error, TimeoutError)
+    assert str(err.last_error) == ""
+    assert isinstance(err.__cause__, TimeoutError)
+    assert str(err.__cause__) == ""
+    assert sleep_mock.call_count == 0
+
+
 @pytest.mark.parametrize(
     ("max_attempts", "delay_seconds", "retryable_exceptions", "exception", "match"),
     [
         (
             -1,
+            0,
+            (TimeoutError, ConnectionError),
+            ValueError,
+            "max_attempts 必须是大于等于 1 的整数，布尔值不视为合法整数",
+        ),
+        (
+            0,
             0,
             (TimeoutError, ConnectionError),
             ValueError,
