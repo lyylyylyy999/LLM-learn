@@ -1,6 +1,7 @@
 import time
 from dataclasses import dataclass
 import logging
+import math
 from typing import Callable, TypeVar
 
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,7 @@ class RetryPolicy:
                 isinstance(self.delay_seconds, int)
                 or isinstance(self.delay_seconds, float)
             )
+            or not math.isfinite(self.delay_seconds)
             or isinstance(self.delay_seconds, bool)
             or self.delay_seconds < 0
         ):

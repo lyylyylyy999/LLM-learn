@@ -1,5 +1,6 @@
 import pytest
 import logging
+import math
 from unittest.mock import Mock
 from exercises.task_002_retry_executor.sync_retry_executor import (
     RetryExhaustedError,
@@ -185,6 +186,20 @@ def test_max_attempts_abnormal(caplog: pytest.LogCaptureFixture) -> None:
         (
             5,
             True,
+            (TimeoutError, ConnectionError),
+            ValueError,
+            "delay_seconds 必须是大于等于 0 的整数或浮点数，布尔值不合法",
+        ),
+        (
+            5,
+            math.nan,
+            (TimeoutError, ConnectionError),
+            ValueError,
+            "delay_seconds 必须是大于等于 0 的整数或浮点数，布尔值不合法",
+        ),
+        (
+            5,
+            math.inf,
             (TimeoutError, ConnectionError),
             ValueError,
             "delay_seconds 必须是大于等于 0 的整数或浮点数，布尔值不合法",
