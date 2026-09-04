@@ -4,16 +4,17 @@ import logging
 import math
 from typing import Callable, TypeVar
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
 class RetryExhaustedError(Exception):
-    def __init__(self, attempts, last_error):
-        self.attempts: int = attempts
-        self.last_error: Exception = last_error
-        super().__init__(f"重试 {attempts} 次后仍然失败，最后一次异常为{type(last_error).__name__}: {last_error}")
+    def __init__(self, attempts: int, last_error: Exception):
+        self.attempts = attempts
+        self.last_error = last_error
+        super().__init__(
+            f"重试 {attempts} 次后仍然失败，最后一次异常为{type(last_error).__name__}: {last_error}"
+        )
 
 
 @dataclass
