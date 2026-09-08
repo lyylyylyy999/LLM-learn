@@ -2,13 +2,11 @@ import time
 from dataclasses import dataclass
 import logging
 import math
-from typing import Callable, TypeVar, ParamSpec
+from typing import Callable, TypeVar
 
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
-R = TypeVar("R")
-P = ParamSpec("P")
 
 
 class RetryExhaustedError(Exception):

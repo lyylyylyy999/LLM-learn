@@ -1,5 +1,5 @@
 import pytest
-from exercises.task_003_retry_decorator.retry_decorator import retry
+from exercises.task_002_retry_executor.retry_decorator import retry
 from exercises.task_002_retry_executor.sync_retry_executor import (
     RetryPolicy,
     RetryExhaustedError,
@@ -18,6 +18,7 @@ def test_no_parameter() -> None:
 
     assert operation() == "ok"
     assert mock.call_count == 1
+    assert sleep_mock.call_args_list == []
 
 
 def test_with_parameter() -> None:
@@ -86,8 +87,8 @@ def test_non_retryable_exception() -> None:
 
 
 def test_returns_operation_result() -> None:
-    input_str = ["ok"]
-    mock = Mock(return_value=input_str)
+    input_list = ["ok"]
+    mock = Mock(return_value=input_list)
     sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=3, delay_seconds=1)
 
@@ -96,7 +97,7 @@ def test_returns_operation_result() -> None:
         return mock()
 
     result = operation()
-    assert input_str is result
+    assert input_list is result
 
 
 def test_state_with_decorator() -> None:
@@ -116,24 +117,24 @@ def test_state_with_decorator() -> None:
     assert sleep_mock.call_args_list == [call(policy.delay_seconds)]
 
 
-def test_metadata_exist() -> None:
-    mock = Mock(side_effect=["ok"])
+def test_wrapped_points_to_original_function() -> None:
     sleep_mock = Mock()
     policy = RetryPolicy(max_attempts=3, delay_seconds=1)
 
-    @retry(policy=policy, sleep_func=sleep_mock)
-    def operation():
-        """测试"""
-        return mock()
+    def operation() -> str:
+        """测试文档"""
+        return "ok"
 
-    assert operation.__name__ == "operation"
-    assert operation.__doc__ == "测试"
+    original = operation
 
-    original = getattr(operation, "__wrapped__")
+    decorated = retry(
+        policy=policy,
+        sleep_func=sleep_mock,
+    )(operation)
 
-    assert callable(original)
-    assert original.__name__ == "operation"
-    assert original.__doc__ == "测试"
+    assert decorated.__name__ == "operation"
+    assert decorated.__doc__ == "测试文档"
+    assert getattr(decorated, "__wrapped__") is original
 
 
 def test_decorated_instance_method_can_access_self_state() -> None:
@@ -197,3 +198,29 @@ def test_decorated_function_can_return_none() -> None:
     assert result is None
     assert mock.call_count == 1
     sleep_mock.assert_not_called()
+
+
+def test_mutable_input_is_not_modified_and_identity_is_preserved() -> None:
+    input_list = ["a", "b"]
+    original_content = input_list.copy()
+
+    mock = Mock(
+        side_effect=[
+            TimeoutError(),
+            "ok",
+        ]
+    )
+    sleep_mock = Mock()
+    policy = RetryPolicy(max_attempts=3, delay_seconds=1)
+
+    @retry(policy=policy, sleep_func=sleep_mock)
+    def operation(values: list[str]) -> str:
+        return mock(values)
+
+    result = operation(input_list)
+
+    assert result == "ok"
+    assert input_list == original_content
+    assert mock.call_count == 2
+    assert mock.call_args_list[0].args[0] is input_list
+    assert mock.call_args_list[1].args[0] is input_list

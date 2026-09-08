@@ -7,7 +7,6 @@ from exercises.task_002_retry_executor.sync_retry_executor import (
 )
 
 
-T = TypeVar("T")
 R = TypeVar("R")
 P = ParamSpec("P")
 
@@ -22,8 +21,7 @@ def retry(
             def operation() -> R:
                 return func(*args, **kwargs)
 
-            result = execute_with_retry(operation, policy, sleep_func)
-            return result
+            return execute_with_retry(operation, policy, sleep_func)
 
         return wrapper
 
