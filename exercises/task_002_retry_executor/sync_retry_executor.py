@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import logging
 import math
 from typing import Callable, TypeVar, ParamSpec
-from functools import wraps
 
 
 logger = logging.getLogger(__name__)
@@ -86,21 +85,3 @@ def execute_with_retry(
             else:
                 raise
     raise RuntimeError("Unreachable: retry loop should always return or raise")
-
-
-def retry(
-    policy: RetryPolicy,
-    sleep_func: Callable[[float], None] = time.sleep,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        @wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            def opreation() -> R:
-                return func(*args, **kwargs)
-
-            result = execute_with_retry(opreation, policy, sleep_func)
-            return result
-
-        return wrapper
-
-    return decorator
