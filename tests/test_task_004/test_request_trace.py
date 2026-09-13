@@ -1,6 +1,7 @@
-import pytest
-from exercises.task_004_request_trace.request_trace import RequestTrace
 from unittest.mock import Mock
+import pytest
+from exercises.task_004_request_trace.request_trace import RequestTrace, TraceRecord
+from dataclasses import FrozenInstanceError
 
 
 def test_normal_record() -> None:
@@ -10,6 +11,8 @@ def test_normal_record() -> None:
     assert trace.record is None
     assert sink.call_count == 0
     with trace:
+        assert trace.record is None
+        assert sink.call_count == 0
         pass
     record = trace.record
     assert record is not None
@@ -25,16 +28,21 @@ def test_abnormal_record() -> None:
     sink = Mock()
     clock = Mock(side_effect=[10.00, 11.00])
     trace = RequestTrace(request_name="test_abnormal", sink=sink, clock=clock)
-    with pytest.raises(ValueError, match="test_abnormal_record"):
+    original = ValueError("test_abnormal_record")
+    with pytest.raises(ValueError, match="test_abnormal_record") as exc_info:
         with trace:
-            raise ValueError("test_abnormal_record")
+            raise original
+
+    assert exc_info.value is original
     record = trace.record
     assert record is not None
     assert record.request_name == "test_abnormal"
     assert record.elapsed_seconds == pytest.approx(1.00)
-    assert record.status == "fail"
+    assert record.status == "failure"
     assert record.error_type == "ValueError"
     assert sink.call_count == 1
+    sent = sink.call_args.args[0]
+    assert sent is trace.record
     assert clock.call_count == 2
 
 
@@ -84,8 +92,10 @@ def test_same_instance_used_twice_sequentially() -> None:
     ):
         with trace:
             pass
+        first_record = trace.record
         with trace:
             pass
+    assert first_record is trace.record
     assert sink.call_count == 1
     assert clock.call_count == 2
 
@@ -126,7 +136,6 @@ def test_two_instances_are_independent() -> None:
     with trace1:
         pass
 
-    # trace1 已经用过，但不应该影响 trace2
     with trace2:
         pass
 
@@ -142,12 +151,55 @@ def test_two_instances_are_independent() -> None:
     assert sink1.call_count == 1
     assert sink2.call_count == 1
 
-    # trace1 自己仍然不能再次进入
     with pytest.raises(RuntimeError):
         with trace1:
             pass
 
-    # trace2 自己也不能再次进入
     with pytest.raises(RuntimeError):
         with trace2:
             pass
+
+
+def test_same_clock() -> None:
+    sink = Mock()
+    clock = Mock(side_effect=[10.00, 10.00])
+    trace = RequestTrace(request_name="test_normal", sink=sink, clock=clock)
+    with trace:
+        pass
+    record = trace.record
+    assert record is not None
+    assert record.request_name == "test_normal"
+    assert record.elapsed_seconds == 0
+    assert record.status == "success"
+    assert record.error_type is None
+    assert sink.call_count == 1
+    assert clock.call_count == 2
+
+
+def test_no_message_exception() -> None:
+    sink = Mock()
+    clock = Mock(side_effect=[10.00, 11.00])
+    trace = RequestTrace(request_name="test", sink=sink, clock=clock)
+    with pytest.raises(ValueError, match=None):
+        with trace:
+            raise ValueError
+    record = trace.record
+    assert record is not None
+    assert record.request_name == "test"
+    assert record.elapsed_seconds == pytest.approx(1.00)
+    assert record.status == "failure"
+    assert record.error_type == "ValueError"
+    assert sink.call_count == 1
+    assert clock.call_count == 2
+
+
+def test_trace_record_is_frozen() -> None:
+    record = TraceRecord(
+        request_name="get_user",
+        status="success",
+        elapsed_seconds=0.25,
+        error_type=None,
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        record.status = "failure"
