@@ -47,11 +47,11 @@ class RequestTrace:
         tb: TracebackType | None,
     ) -> bool:
         end = self._clock()
-        time = end - self._start
+        spend_time = end - self._start
         self._record = TraceRecord(
             request_name=self.request_name,
             status="success" if exc_type is None else "failure",
-            elapsed_seconds=time,
+            elapsed_seconds=spend_time,
             error_type=None if exc_type is None else exc_type.__name__,
         )
         self.sink(self._record)
