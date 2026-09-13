@@ -1,7 +1,7 @@
 from unittest.mock import Mock
+from dataclasses import FrozenInstanceError
 import pytest
 from exercises.task_004_request_trace.request_trace import RequestTrace, TraceRecord
-from dataclasses import FrozenInstanceError
 
 
 def test_normal_record() -> None:
@@ -57,16 +57,14 @@ def test_abnormal_record() -> None:
     ],
 )
 def test_invalid_request_name(
-    request_name: str, exception: type[Exception], match: str
+    request_name: object, exception: type[Exception], match: str
 ) -> None:
     sink = Mock()
     clock = Mock(side_effect=[10, 11])
-    trace = RequestTrace(request_name=request_name, sink=sink, clock=clock)
     with pytest.raises(exception, match=match):
-        with trace:
-            pass
-    sink.call_count == 0
-    clock.call_count == 0
+        RequestTrace(request_name=request_name, sink=sink, clock=clock)
+    assert sink.call_count == 0
+    assert clock.call_count == 0
 
 
 def test_enter_returns_same_instance() -> None:

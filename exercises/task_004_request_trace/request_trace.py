@@ -1,6 +1,7 @@
 import time
 from dataclasses import dataclass
 from typing import Literal, Callable
+from types import TracebackType
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,8 @@ class RequestTrace:
         clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         self.request_name = request_name
+        if not isinstance(self.request_name, str) or not self.request_name.strip():
+            raise ValueError("request_name 只能是非空字符串类型")
         self._clock = clock
         self.sink = sink
         self._record: TraceRecord | None = None
@@ -32,14 +35,15 @@ class RequestTrace:
     def __enter__(self) -> "RequestTrace":
         if self._entered:
             raise RuntimeError("RequestTrace instance can only be entered once")
-        if not isinstance(self.request_name, str) or not self.request_name.strip():
-            raise ValueError("request_name 只能是非空字符串类型")
 
         self._entered = True
         self._start = self._clock()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
+    def __exit__(self, exc_type: type[Exception], 
+                 exc: BaseException | None, 
+                 tb: TracebackType | None
+    ) -> bool:
         end = self._clock()
         time = end - self._start
         self._record = TraceRecord(
