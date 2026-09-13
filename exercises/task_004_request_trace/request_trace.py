@@ -40,9 +40,11 @@ class RequestTrace:
         self._start = self._clock()
         return self
 
-    def __exit__(self, exc_type: type[Exception], 
-                 exc: BaseException | None, 
-                 tb: TracebackType | None
+    def __exit__(
+        self,
+        exc_type: type[Exception] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> bool:
         end = self._clock()
         time = end - self._start
