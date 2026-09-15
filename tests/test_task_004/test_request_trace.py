@@ -57,7 +57,7 @@ def test_abnormal_record() -> None:
     ],
 )
 def test_invalid_request_name(
-    request_name: object, exception: type[Exception], match: str
+    request_name: str, exception: type[Exception], match: str
 ) -> None:
     sink = Mock()
     clock = Mock(side_effect=[10, 11])
@@ -200,4 +200,4 @@ def test_trace_record_is_frozen() -> None:
     )
 
     with pytest.raises(FrozenInstanceError):
-        record.status = "failure"
+        setattr(record, "status", "failure")

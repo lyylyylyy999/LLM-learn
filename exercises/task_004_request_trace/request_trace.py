@@ -45,7 +45,7 @@ class RequestTrace:
         exc_type: type[BaseException] | None,
         exc: BaseException | None,
         tb: TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         end = self._clock()
         spend_time = end - self._start
         self._record = TraceRecord(
