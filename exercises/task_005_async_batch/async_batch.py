@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Literal, TypeVar, Callable, Awaitable
+from typing import Literal, TypeVar, Callable, Awaitable, Sequence
 
 
 R = TypeVar("R")
@@ -16,7 +16,7 @@ class ItemResult[R]:
 
 
 async def async_map_limited(
-    items: list[T],
+    items: Sequence[T],
     worker: Callable[[T], Awaitable[R]],
     max_concurrency: int,
 ) -> list[ItemResult[R]]:
@@ -26,8 +26,6 @@ async def async_map_limited(
         or max_concurrency < 1
     ):
         raise ValueError("max_concurrency 必须是大于等于 1 的整数，布尔值不合法")
-    if not isinstance(items, list):
-        raise ValueError("items 必须是列表")
     if items == []:
         return []
     semaphore = asyncio.Semaphore(max_concurrency)

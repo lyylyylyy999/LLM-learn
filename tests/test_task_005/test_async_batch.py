@@ -1,13 +1,13 @@
 import asyncio
 from dataclasses import FrozenInstanceError
+from typing import Any
 import pytest
 from unittest.mock import AsyncMock
 from exercises.task_005_async_batch.async_batch import ItemResult, async_map_limited
 
 
 def test_single_item() -> None:
-    async def worker(x: str) -> str:
-        return x
+    worker = AsyncMock(side_effect=["3"])
 
     result = asyncio.run(
         async_map_limited(
@@ -17,11 +17,28 @@ def test_single_item() -> None:
         )
     )
     assert result == [ItemResult(index=0, status="success", value="3", error=None)]
+    assert worker.call_count == 1
+
+
+def test_tuple_items() -> None:
+    worker = AsyncMock(side_effect=[1, 2])
+
+    result = asyncio.run(
+        async_map_limited(
+            items=(1, 2),
+            worker=worker,
+            max_concurrency=2,
+        )
+    )
+    assert result == [
+        ItemResult(index=0, status="success", value=1, error=None),
+        ItemResult(index=1, status="success", value=2, error=None),
+    ]
+    assert worker.call_count == 2
 
 
 def test_multiple_items() -> None:
-    async def worker(x: int) -> int:
-        return x
+    worker = AsyncMock(side_effect=[1, 2, 3])
 
     result = asyncio.run(
         async_map_limited(
@@ -35,6 +52,7 @@ def test_multiple_items() -> None:
         ItemResult(index=1, status="success", value=2, error=None),
         ItemResult(index=2, status="success", value=3, error=None),
     ]
+    assert worker.call_count == 3
 
 
 def test_result_order() -> None:
@@ -143,14 +161,14 @@ def test_two_workers_wait_at_same_time() -> None:
         started_b = asyncio.Event()
         release = asyncio.Event()
 
-        async def worker(x: str) -> str:
-            if x == "A":
+        async def worker(item: str) -> str:
+            if item == "A":
                 started_a.set()
-            elif x == "B":
+            elif item == "B":
                 started_b.set()
 
             await release.wait()
-            return x
+            return item
 
         task = asyncio.create_task(
             async_map_limited(
@@ -160,13 +178,27 @@ def test_two_workers_wait_at_same_time() -> None:
             )
         )
 
-        await started_a.wait()
-        await started_b.wait()
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(
+                    started_a.wait(),
+                    started_b.wait(),
+                ),
+                timeout=1.0,
+            )
 
-        assert not task.done()
+            assert not task.done()
 
-        release.set()
-        await task
+        finally:
+            release.set()
+
+            if not task.done():
+                task.cancel()
+
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     asyncio.run(scenario())
 
@@ -217,8 +249,7 @@ def test_worker_return_None() -> None:
 
 
 def test_empty_input() -> None:
-    async def worker(x: int) -> int:
-        return x
+    worker = AsyncMock(side_effect=["123"])
 
     result = asyncio.run(
         async_map_limited(
@@ -228,6 +259,7 @@ def test_empty_input() -> None:
         )
     )
     assert result == []
+    assert worker.call_count == 0
 
 
 @pytest.mark.parametrize(
@@ -240,9 +272,9 @@ def test_empty_input() -> None:
     ],
 )
 def test_max_concurrency(
-    max_concurrency: int, exception: type[Exception], match: str
+    max_concurrency: Any, exception: type[Exception], match: str
 ) -> None:
-    worker = AsyncMock(side_effect=["123"])
+    worker = AsyncMock(return_value=["ok"])
 
     with pytest.raises(exception, match=match):
         asyncio.run(
@@ -342,3 +374,17 @@ def test_exception_object_can_be_success_value() -> None:
     assert result[0].status == "success"
     assert result[0].value is exception_value
     assert result[0].error is None
+
+
+def test_worker_cancelled_error_propagates() -> None:
+    async def worker(item: str) -> str:
+        raise asyncio.CancelledError()
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(
+            async_map_limited(
+                items=["A"],
+                worker=worker,
+                max_concurrency=1,
+            )
+        )
