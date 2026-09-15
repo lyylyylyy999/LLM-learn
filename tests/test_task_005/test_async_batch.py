@@ -1,8 +1,8 @@
 import asyncio
+from contextlib import suppress
 from dataclasses import FrozenInstanceError
-from typing import Any
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, call
 from exercises.task_005_async_batch.async_batch import ItemResult, async_map_limited
 
 
@@ -18,6 +18,9 @@ def test_single_item() -> None:
     )
     assert result == [ItemResult(index=0, status="success", value="3", error=None)]
     assert worker.call_count == 1
+    assert worker.call_args_list == [call("3")]
+    assert worker.await_count == 1
+    assert worker.await_args_list == [call("3")]
 
 
 def test_tuple_items() -> None:
@@ -35,6 +38,15 @@ def test_tuple_items() -> None:
         ItemResult(index=1, status="success", value=2, error=None),
     ]
     assert worker.call_count == 2
+    assert worker.call_args_list == [
+        call(1),
+        call(2),
+    ]
+    assert worker.await_count == 2
+    assert worker.await_args_list == [
+        call(1),
+        call(2),
+    ]
 
 
 def test_multiple_items() -> None:
@@ -53,6 +65,17 @@ def test_multiple_items() -> None:
         ItemResult(index=2, status="success", value=3, error=None),
     ]
     assert worker.call_count == 3
+    assert worker.call_args_list == [
+        call(1),
+        call(2),
+        call(3),
+    ]
+    assert worker.await_count == 3
+    assert worker.await_args_list == [
+        call(1),
+        call(2),
+        call(3),
+    ]
 
 
 def test_result_order() -> None:
@@ -67,7 +90,9 @@ def test_result_order() -> None:
                 await release_a.wait()
 
             if item == "B":
+                completion_order.append(item)
                 b_finished.set()
+                return item
 
             completion_order.append(item)
             return item
@@ -80,22 +105,33 @@ def test_result_order() -> None:
             )
         )
 
-        # 明确等待 B 已经执行到这里
-        await b_finished.wait()
+        try:
+            await asyncio.wait_for(
+                b_finished.wait(),
+                timeout=1.0,
+            )
 
-        assert completion_order == ["B"]
+            assert completion_order == ["B"]
 
-        # 再允许 A 完成
-        release_a.set()
+            release_a.set()
 
-        result = await task
+            result = await task
 
-        assert completion_order == ["B", "A"]
+            assert completion_order == ["B", "A"]
 
-        assert result == [
-            ItemResult(index=0, status="success", value="A", error=None),
-            ItemResult(index=1, status="success", value="B", error=None),
-        ]
+            assert result == [
+                ItemResult(index=0, status="success", value="A", error=None),
+                ItemResult(index=1, status="success", value="B", error=None),
+            ]
+
+        finally:
+            release_a.set()
+
+            if not task.done():
+                task.cancel()
+
+            with suppress(asyncio.CancelledError):
+                await task
 
     asyncio.run(scenario())
 
@@ -272,7 +308,7 @@ def test_empty_input() -> None:
     ],
 )
 def test_max_concurrency(
-    max_concurrency: Any, exception: type[Exception], match: str
+    max_concurrency: object, exception: type[Exception], match: str
 ) -> None:
     worker = AsyncMock(return_value=["ok"])
 
@@ -376,15 +412,29 @@ def test_exception_object_can_be_success_value() -> None:
     assert result[0].error is None
 
 
-def test_worker_cancelled_error_propagates() -> None:
-    async def worker(item: str) -> str:
-        raise asyncio.CancelledError()
+def test_external_cancellation_propagates() -> None:
+    async def scenario() -> None:
+        started = asyncio.Event()
+        release = asyncio.Event()
 
-    with pytest.raises(asyncio.CancelledError):
-        asyncio.run(
+        async def worker(item: str) -> str:
+            started.set()
+            await release.wait()
+            return item
+
+        task = asyncio.create_task(
             async_map_limited(
                 items=["A"],
                 worker=worker,
                 max_concurrency=1,
             )
         )
+
+        await asyncio.wait_for(started.wait(), timeout=1.0)
+
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(scenario())
