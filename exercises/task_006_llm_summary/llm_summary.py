@@ -1,10 +1,8 @@
-import os
 import time
 import logging
 from dataclasses import dataclass
 from typing import Callable
 from openai import OpenAI
-import openai
 
 
 logger = logging.getLogger(__name__)
@@ -18,14 +16,14 @@ class SummarySettings:
     def __post_init__(self) -> None:
         if self.model.strip() == "":
             raise ValueError("model 不能是空字符串或者纯空白模型名")
-        if self.max_output_tokens < 1:
-            raise ValueError("max_output_tokens 不能小于 1")
+        if self.max_output_tokens < 16:
+            raise ValueError("max_output_tokens 不能小于 16")
 
 
 @dataclass(frozen=True)
 class SuccessResult:
     summary_text: str
-    response_id: int
+    response_id: str
     response_model: str
     input_tokens: int | None
     output_tokens: int | None
@@ -38,24 +36,21 @@ class LLMError(Exception):
 
 
 def llm_summary(
-        client: OpenAI,
-        text: str,
-        summary_settings: SummarySettings,
-        clock: Callable[[], float] = time.perf_counter,
+    client: OpenAI,
+    text: str,
+    summary_settings: SummarySettings,
+    clock: Callable[[], float] = time.perf_counter,
 ) -> SuccessResult:
     if text.strip() == "":
         raise ValueError("拒绝空字符串或纯空白对话")
     start_time = clock()
-    try:
-        response = client.responses.create(
-            model=summary_settings.model,
-            instructions="摘要目标是获得 SuccessResult 数据结构，不添加原文不存在的信息",
-            input=text,
-            max_output_tokens=summary_settings.max_output_tokens,
-            store=False,
-        )
-    except openai.APIError:
-        raise
+    response = client.responses.create(
+        model=summary_settings.model,
+        instructions="摘要目标是获得 SuccessResult 数据结构，不添加原文不存在的信息",
+        input=text,
+        max_output_tokens=summary_settings.max_output_tokens,
+        store=False,
+    )
     if response.status == "completed" and response.output_text.strip() != "":
         summary_text = response.output_text
         end_time = clock()
