@@ -18,6 +18,7 @@ python -m pytest tests/test_task_006/test_llm_summary.py -m integration -q
 
 * `DEEPSEEK_API_KEY` 通过环境变量提供，不写入源码、测试数据、日志或提交历史。
 * `RUN_DEEPSEEK_SMOKE=1` 用于显式开启真实 API 测试。
+* `DEEPSEEK_MODEL` 是冒烟测试使用的模型。
 * 未设置 `RUN_DEEPSEEK_SMOKE=1` 时，该测试默认跳过。
 
 ### 模型配置
