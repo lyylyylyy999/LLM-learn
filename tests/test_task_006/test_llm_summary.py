@@ -1,4 +1,5 @@
 import logging
+import os
 import pytest
 import httpx
 import openai
@@ -27,7 +28,7 @@ def test_normal_response() -> None:
     client = Mock()
     client.responses.create.return_value = fake_response
     clock = Mock(side_effect=[10.0, 12.5])
-    settings = SummarySettings(model="deepseek_flash", max_output_tokens=16)
+    settings = SummarySettings(model="deepseek-flash", max_output_tokens=16)
     result = llm_summary(
         client=client, text="什么是过拟合?", summary_settings=settings, clock=clock
     )
@@ -41,8 +42,8 @@ def test_normal_response() -> None:
         elapsed_seconds=2.5,
     )
     client.responses.create.assert_called_once_with(
-        model="deepseek_flash",
-        instructions="摘要目标是获得 SuccessResult 数据结构，不添加原文不存在的信息",
+        model="deepseek-flash",
+        instructions="请提供结构化输出，不添加原文不存在的信息",
         input="什么是过拟合?",
         max_output_tokens=16,
         store=False,
@@ -83,9 +84,11 @@ def test_exception_settings(
 def test_empty_text(text: str) -> None:
     client = Mock()
     clock = Mock(side_effect=[10.0, 12.5])
-    settings = SummarySettings(model="deepseek_flash", max_output_tokens=300)
+    settings = SummarySettings(model="deepseek-flash", max_output_tokens=300)
     with pytest.raises(ValueError, match="拒绝空字符串或纯空白对话"):
         llm_summary(client=client, text=text, summary_settings=settings, clock=clock)
+    assert clock.call_count == 0
+    assert client.call_count == 0
 
 
 @pytest.mark.parametrize(
@@ -110,7 +113,7 @@ def test_exception_status(status: str, exception: type[Exception], id: str) -> N
     client = Mock()
     client.responses.create.return_value = fake_response
     clock = Mock(side_effect=[10.0, 12.5])
-    settings = SummarySettings(model="deepseek_flash", max_output_tokens=300)
+    settings = SummarySettings(model="deepseek-flash", max_output_tokens=300)
     with pytest.raises(exception, match=f"发生异常，响应 ID: {id},状态: {status}"):
         llm_summary(
             client=client, text="什么是过拟合?", summary_settings=settings, clock=clock
@@ -142,7 +145,7 @@ def test_completed_but_output_text_is_empty(
     client = Mock()
     client.responses.create.return_value = fake_response
     clock = Mock(side_effect=[10.0, 12.5])
-    settings = SummarySettings(model="deepseek_flash", max_output_tokens=300)
+    settings = SummarySettings(model="deepseek-flash", max_output_tokens=300)
     with pytest.raises(exception, match="发生异常，响应 ID: resp_123,状态: completed"):
         llm_summary(
             client=client, text="什么是过拟合?", summary_settings=settings, clock=clock
@@ -160,7 +163,7 @@ def test_usage_is_None() -> None:
     client = Mock()
     client.responses.create.return_value = fake_response
     clock = Mock(side_effect=[10.0, 12.5])
-    settings = SummarySettings(model="deepseek_flash", max_output_tokens=300)
+    settings = SummarySettings(model="deepseek-flash", max_output_tokens=300)
     result = llm_summary(
         client=client, text="什么是过拟合?", summary_settings=settings, clock=clock
     )
@@ -174,8 +177,8 @@ def test_usage_is_None() -> None:
         elapsed_seconds=2.5,
     )
     client.responses.create.assert_called_once_with(
-        model="deepseek_flash",
-        instructions="摘要目标是获得 SuccessResult 数据结构，不添加原文不存在的信息",
+        model="deepseek-flash",
+        instructions="请提供结构化输出，不添加原文不存在的信息",
         input="什么是过拟合?",
         max_output_tokens=300,
         store=False,
@@ -300,11 +303,6 @@ def test_failure_does_not_leak_sensitive_data(caplog) -> None:
         assert secret not in exception_text
 
 
-import os
-
-import pytest
-from openai import OpenAI
-
 from exercises.task_006_llm_summary.llm_summary import (
     SummarySettings,
     llm_summary,
@@ -318,12 +316,12 @@ from exercises.task_006_llm_summary.llm_summary import (
 )
 def test_real_deepseek_smoke() -> None:
     api_key = os.environ.get("DEEPSEEK_API_KEY")
-    model = os.environ.get("DEEPSEEK_SMOKE_MODEL", "deepseek-flash")
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-flash")
 
     if not api_key:
         pytest.skip("DEEPSEEK_API_KEY 未设置")
 
-    client = OpenAI(
+    client = openai.OpenAI(
         api_key=api_key,
         base_url="https://api.deepseek.com",
     )
@@ -344,6 +342,14 @@ def test_real_deepseek_smoke() -> None:
         ),
         summary_settings=settings,
     )
+
+    print("\n--- DeepSeek smoke test result ---")
+    print(f"model: {result.response_model}")
+    print(f"response_id: {result.response_id}")
+    print(f"input_tokens: {result.input_tokens}")
+    print(f"output_tokens: {result.output_tokens}")
+    print(f"total_tokens: {result.total_tokens}")
+    print(f"elapsed_seconds: {result.elapsed_seconds:.6f}")
 
     assert result.summary_text.strip()
     assert result.response_id

@@ -46,7 +46,7 @@ def llm_summary(
     start_time = clock()
     response = client.responses.create(
         model=summary_settings.model,
-        instructions="摘要目标是获得 SuccessResult 数据结构，不添加原文不存在的信息",
+        instructions="请提供结构化输出，不添加原文不存在的信息",
         input=text,
         max_output_tokens=summary_settings.max_output_tokens,
         store=False,
@@ -56,7 +56,7 @@ def llm_summary(
         end_time = clock()
         elapsed_seconds = end_time - start_time
         if response.usage is None:
-            logger.info(
+            logger.error(
                 "LLM summary succeeded: model=%s response_id=%s "
                 "input_tokens=None output_tokens=None total_tokens=None elapsed_seconds=%.6f",
                 response.model,
@@ -99,23 +99,3 @@ def llm_summary(
             response.id,
         )
         raise LLMError(f"发生异常，响应 ID: {response.id},状态: {response.status}")
-
-
-# client = OpenAI(
-#     api_key=os.environ["DEEPSEEK_API_KEY"],
-#     base_url="https://api.deepseek.com",
-# )
-
-# text = """ """
-
-# settings = SummarySettings(
-#     model="deepseek-flash",
-#     max_output_tokens=2000,
-# )
-
-# result = llm_summary(
-#     client=client,
-#     text=text,
-#     summary_settings=settings,
-# )
-# print(result)

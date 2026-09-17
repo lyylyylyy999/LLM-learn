@@ -9,7 +9,7 @@
 
 ## 背景
 
-此前任务已经训练了数据验证、异常、重试、上下文管理器和异步并发，但尚未与真实大模型交互。本任务要求实现一个小型对话摘要客户端：它通过 OpenAI Responses API 把一段对话发送给模型，返回摘要及最基本的请求元数据，同时保证核心逻辑可以在没有网络、API Key 和模型额度的情况下完成单元测试。
+此前任务已经训练了数据验证、异常、重试、上下文管理器和异步并发，但尚未与真实大模型交互。本任务要求实现一个小型对话摘要客户端：它通过 DeepSeek Responses API 把一段对话发送给模型，返回摘要及最基本的请求元数据，同时保证核心逻辑可以在没有网络、API Key 和模型额度的情况下完成单元测试。
 
 学习价值不在于“成功调用一次 API”，而在于理解模型请求的生命周期，以及确定性代码和非确定性外部模型之间的边界。后续结构化输出、评测和 FastAPI 集成都将建立在这个边界之上。
 
@@ -18,7 +18,7 @@
 完成后，学习者应该能够：
 
 - [ ] 使用自己的话解释 `instructions`、`input`、模型配置、响应状态、`output_text` 和 token usage 在一次请求中的作用。
-- [ ] 使用官方 SDK 完成一次受控的真实模型请求，并避免在代码、日志和 Git 中泄露 API Key 或对话内容。
+- [ ] 使用 OpenAI Python SDK 作为 DeepSeek 兼容客户端，完成一次受控的真实模型请求，并避免在代码、日志和 Git 中泄露 API Key 或对话内容。
 - [ ] 通过注入客户端和时钟，在不访问真实模型的情况下测试请求参数、结果映射、异常传播和耗时记录。
 - [ ] 区分 SDK 调用异常、非完成响应、空模型输出和本地输入错误，不使用一个宽泛异常掩盖所有失败。
 - [ ] 说明为什么默认测试不能依赖真实模型，以及真实冒烟测试应该验证什么、不应该验证什么。
@@ -34,9 +34,9 @@
 
 最少必要阅读：
 
-- [OpenAI 文本生成指南](https://developers.openai.com/api/docs/guides/text)：重点阅读 Responses API 的 Python 请求示例、`instructions` 与 `input` 的区别，以及 `output_text`。
-- [创建模型响应 API 参考](https://developers.openai.com/api/reference/python/resources/responses/methods/create)：只需确认本任务使用的请求字段和响应中的 `status`、`id`、`model`、`output_text`、`usage`。
-- [OpenAI API 错误说明](https://developers.openai.com/api/docs/guides/error-codes)：先认识认证、限流、连接和服务端错误，不要求本任务实现完整重试策略。
+- [DeepSeek Responses API 指南](https://api-docs.deepseek.com/guides/responses_api/)：重点阅读 Python 请求示例、兼容性说明，以及 `instructions`、`input` 和 `output_text`。
+- [DeepSeek Responses API 参考](https://api-docs.deepseek.com/api/create-response/)：只需确认本任务使用的请求字段和响应中的 `status`、`id`、`model`、`output_text`、`usage`。
+- [DeepSeek API 错误说明](https://api-docs.deepseek.com/quick_start/error_codes/)：先认识认证、余额、限流、参数、连接和服务端错误，不要求本任务实现完整重试策略。
 
 建议先完成三个不超过 10 分钟的小实验：
 
@@ -49,7 +49,7 @@
 ### 1. 项目与依赖
 
 - 实现代码放在 `exercises/task_006_llm_summary/`，测试放在 `tests/test_task_006/`。
-- 使用官方 `openai` Python SDK 和现有的 pytest；不得自行拼接 HTTP 请求。
+- 使用 `openai` Python SDK 作为 DeepSeek Responses API 的兼容客户端，并使用现有的 pytest；不得自行拼接 HTTP 请求。
 - 在仓库根目录增加最小依赖清单，只记录项目直接使用的依赖，不复制当前 Anaconda 环境的完整 `pip freeze`。
 - 如提供 `.env.example`，只能包含变量名和明显的占位值；真实 `.env` 与 API Key 不得进入 Git。
 
@@ -60,9 +60,9 @@
 - `model: str`
 - `max_output_tokens: int`
 
-配置创建时必须拒绝空字符串或纯空白模型名，以及小于 1 的 `max_output_tokens`。
+配置创建时必须拒绝空字符串或纯空白模型名，以及小于 16 的 `max_output_tokens`。
 
-模型名不得散落硬编码在业务函数和测试中。真实冒烟测试从 `OPENAI_MODEL` 读取模型名；API Key 由官方 SDK 从 `OPENAI_API_KEY` 读取。
+模型名不得散落硬编码在业务函数和测试中。真实冒烟测试从 `DEEPSEEK_MODEL` 读取模型名；API Key 从 `DEEPSEEK_API_KEY` 读取。构造真实客户端时必须显式使用 `base_url="https://api.deepseek.com"`，不得把 DeepSeek Key 发送到其他服务地址。
 
 ### 3. 摘要结果
 
@@ -80,7 +80,7 @@
 
 提供一个公开的同步函数，接收：
 
-- 已构造的 OpenAI 客户端
+- 已构造并指向 DeepSeek `base_url` 的 OpenAI SDK 兼容客户端
 - 待摘要的对话文本
 - 摘要配置
 - 可注入的单调时钟，生产默认使用 `time.perf_counter`
@@ -88,7 +88,7 @@
 行为要求：
 
 - 在发起请求前拒绝空字符串或纯空白对话，且此时客户端不得被调用。
-- 通过 Responses API 发起一次请求，明确传入 `model`、`instructions`、`input`、`max_output_tokens` 和 `store=False`。
+- 通过 DeepSeek Responses API 发起一次请求，明确传入 `model`、`instructions`、`input`、`max_output_tokens` 和 `store=False`。DeepSeek 当前不存储 Responses API 会话并固定返回 `store: false`；此处参数用于保持调用意图和兼容接口清晰。
 - `instructions` 应说明摘要目标和“不添加原文不存在的信息”等基本约束；对话原文只放入 `input`，不要通过字符串拼接混入指令层。
 - 使用 SDK 提供的 `output_text` 读取文本，不假定 `output[0]` 一定是消息或文本。
 - 只有响应状态为 `completed` 且 `output_text` 非空时才返回成功结果。
@@ -105,7 +105,7 @@
 ### 6. 真实冒烟测试
 
 - 增加一个明确标记的真实 API 冒烟测试；默认运行 `python -m pytest` 时必须跳过它。
-- 只有显式设置运行开关、`OPENAI_API_KEY` 和 `OPENAI_MODEL` 时才允许发起真实请求。
+- 只有显式设置运行开关、`DEEPSEEK_API_KEY` 和 `DEEPSEEK_MODEL` 时才允许发起真实请求；真实客户端的 `base_url` 必须是 `https://api.deepseek.com`。
 - 冒烟测试只使用仓库内可公开的合成对话，不发送个人信息、真实聊天记录或其他敏感数据。
 - 冒烟测试只断言请求成功、摘要非空、元数据基本合理，不断言固定措辞。
 
@@ -129,7 +129,7 @@
 - [ ] usage 缺失时仍能返回成功结果，对应 token 字段为 `None`。
 - [ ] 日志包含必要运行元数据，但不包含测试使用的对话原文、模型输出或 API Key。
 - [ ] 默认测试套件完全离线；真实冒烟测试只能通过显式开关运行。
-- [ ] 至少一次真实 Responses API 冒烟测试成功，并记录执行命令、模型配置和脱敏后的结果摘要。
+- [ ] 至少一次真实 DeepSeek Responses API 冒烟测试成功，并记录执行命令、模型配置和脱敏后的结果摘要。
 - [ ] `python -m pytest` 在仓库根目录运行全部默认测试并通过。
 
 ## 测试要求
@@ -137,7 +137,7 @@
 至少覆盖：
 
 - [ ] 完成响应的正常路径，核对 SDK 调用参数与结果全部字段。
-- [ ] 配置中的空白模型名，以及零或负数 `max_output_tokens`。
+- [ ] 配置中的空白模型名，以及小于 16 的 `max_output_tokens`；至少覆盖 `15` 非法、`16` 合法的边界。
 - [ ] 空字符串和纯空白对话，并断言客户端未调用。
 - [ ] `failed`、`incomplete` 或其他非 `completed` 状态。
 - [ ] `completed` 但 `output_text` 为空或只有空白。
