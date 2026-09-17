@@ -43,7 +43,12 @@ def test_normal_response() -> None:
     )
     client.responses.create.assert_called_once_with(
         model="deepseek-flash",
-        instructions="请提供结构化输出，不添加原文不存在的信息",
+        instructions=(
+            "请将输入的对话总结为一段简洁、准确的摘要。"
+            "重点保留核心讨论内容、关键结论和重要事实。"
+            "不得添加原文中不存在的信息。"
+            "只返回摘要正文，不要返回 JSON、字段描述或其他解释。"
+        ),
         input="什么是过拟合?",
         max_output_tokens=16,
         store=False,
@@ -73,22 +78,28 @@ def test_exception_settings(
         )
 
 
-@pytest.mark.parametrize(
-        ("text"),
-        [
-            (""),
-            ("  "),
-            ("\n")
-        ]
-)
+@pytest.mark.parametrize("text", ["", "  ", "\n"])
 def test_empty_text(text: str) -> None:
     client = Mock()
     clock = Mock(side_effect=[10.0, 12.5])
-    settings = SummarySettings(model="deepseek-flash", max_output_tokens=300)
-    with pytest.raises(ValueError, match="拒绝空字符串或纯空白对话"):
-        llm_summary(client=client, text=text, summary_settings=settings, clock=clock)
+    settings = SummarySettings(
+        model="deepseek-flash",
+        max_output_tokens=300,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="拒绝空字符串或纯空白对话",
+    ):
+        llm_summary(
+            client=client,
+            text=text,
+            summary_settings=settings,
+            clock=clock,
+        )
+
     assert clock.call_count == 0
-    assert client.call_count == 0
+    client.responses.create.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -178,7 +189,12 @@ def test_usage_is_None() -> None:
     )
     client.responses.create.assert_called_once_with(
         model="deepseek-flash",
-        instructions="请提供结构化输出，不添加原文不存在的信息",
+        instructions=(
+            "请将输入的对话总结为一段简洁、准确的摘要。"
+            "重点保留核心讨论内容、关键结论和重要事实。"
+            "不得添加原文中不存在的信息。"
+            "只返回摘要正文，不要返回 JSON、字段描述或其他解释。"
+        ),
         input="什么是过拟合?",
         max_output_tokens=300,
         store=False,
@@ -257,6 +273,62 @@ def test_success_log_does_not_leak_sensitive_data(caplog) -> None:
     assert api_key_marker not in log_text
 
 
+def test_success_log_contains_metadata_and_no_sensitive_data(caplog) -> None:
+    input_marker = "SENSITIVE_INPUT_123"
+    output_marker = "SENSITIVE_OUTPUT_456"
+    api_key_marker = "SENSITIVE_API_KEY_789"
+
+    response = SimpleNamespace(
+        status="completed",
+        output_text=output_marker,
+        id="resp_123",
+        model="deepseek-flash",
+        usage=SimpleNamespace(
+            input_tokens=10,
+            output_tokens=5,
+            total_tokens=15,
+        ),
+    )
+
+    client = Mock()
+    client.api_key = api_key_marker
+    client.responses.create.return_value = response
+
+    clock = Mock(side_effect=[10.0, 12.5])
+
+    settings = SummarySettings(
+        model="deepseek-flash",
+        max_output_tokens=300,
+    )
+
+    with caplog.at_level(logging.INFO):
+        llm_summary(
+            client=client,
+            text=input_marker,
+            summary_settings=settings,
+            clock=clock,
+        )
+
+    assert len(caplog.records) == 1
+
+    record = caplog.records[0]
+
+    assert record.levelno == logging.INFO
+
+    message = record.getMessage()
+
+    assert "deepseek-flash" in message
+    assert "resp_123" in message
+    assert "10" in message
+    assert "5" in message
+    assert "15" in message
+    assert "2.5" in message
+
+    assert input_marker not in message
+    assert output_marker not in message
+    assert api_key_marker not in message
+
+
 def test_failure_does_not_leak_sensitive_data(caplog) -> None:
     input_marker = "SENSITIVE_INPUT_a81f23"
     output_marker = "SENSITIVE_OUTPUT_b72c91"
@@ -303,23 +375,20 @@ def test_failure_does_not_leak_sensitive_data(caplog) -> None:
         assert secret not in exception_text
 
 
-from exercises.task_006_llm_summary.llm_summary import (
-    SummarySettings,
-    llm_summary,
-)
-
-
 @pytest.mark.integration
-@pytest.mark.skipif(
-    os.getenv("RUN_DEEPSEEK_SMOKE") != "1",
-    reason="真实 DeepSeek 冒烟测试默认关闭",
-)
 def test_real_deepseek_smoke() -> None:
-    api_key = os.environ.get("DEEPSEEK_API_KEY")
-    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-flash")
+    run_smoke = os.getenv("RUN_DEEPSEEK_SMOKE")
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    model = os.getenv("DEEPSEEK_MODEL")
+
+    if run_smoke != "1":
+        pytest.skip("RUN_DEEPSEEK_SMOKE != 1，跳过真实 API 测试")
 
     if not api_key:
-        pytest.skip("DEEPSEEK_API_KEY 未设置")
+        pytest.skip("未显式提供 DEEPSEEK_API_KEY")
+
+    if not model:
+        pytest.skip("未显式提供 DEEPSEEK_MODEL")
 
     client = openai.OpenAI(
         api_key=api_key,
@@ -333,13 +402,7 @@ def test_real_deepseek_smoke() -> None:
 
     result = llm_summary(
         client=client,
-        text=(
-            "用户：什么是过拟合？\n"
-            "助手：过拟合是模型在训练数据上表现很好，"
-            "但在未见数据上泛化能力较差的现象。\n"
-            "用户：如何缓解？\n"
-            "助手：可以使用正则化、增加数据和交叉验证。"
-        ),
+        text="什么是过拟合？",
         summary_settings=settings,
     )
 

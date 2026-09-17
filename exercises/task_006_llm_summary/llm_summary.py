@@ -46,7 +46,12 @@ def llm_summary(
     start_time = clock()
     response = client.responses.create(
         model=summary_settings.model,
-        instructions="请提供结构化输出，不添加原文不存在的信息",
+        instructions=(
+            "请将输入的对话总结为一段简洁、准确的摘要。"
+            "重点保留核心讨论内容、关键结论和重要事实。"
+            "不得添加原文中不存在的信息。"
+            "只返回摘要正文，不要返回 JSON、字段描述或其他解释。"
+        ),
         input=text,
         max_output_tokens=summary_settings.max_output_tokens,
         store=False,
@@ -56,7 +61,7 @@ def llm_summary(
         end_time = clock()
         elapsed_seconds = end_time - start_time
         if response.usage is None:
-            logger.error(
+            logger.info(
                 "LLM summary succeeded: model=%s response_id=%s "
                 "input_tokens=None output_tokens=None total_tokens=None elapsed_seconds=%.6f",
                 response.model,
@@ -93,7 +98,7 @@ def llm_summary(
             elapsed_seconds=elapsed_seconds,
         )
     else:
-        logger.info(
+        logger.error(
             "LLM summary failed: status=%s response_id=%s",
             response.status,
             response.id,

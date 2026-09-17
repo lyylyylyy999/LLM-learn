@@ -8,7 +8,7 @@ PowerShell：
 
 ```powershell
 $env:DEEPSEEK_API_KEY="<real-key>"
-$env:DEEPSEEK_SMOKE_MODEL="deepseek-flash"
+$env:DEEPSEEK_MODEL="deepseek-flash"
 $env:RUN_DEEPSEEK_SMOKE="1"
 
 python -m pytest tests/test_task_006/test_llm_summary.py -m integration -q
@@ -41,7 +41,7 @@ DeepSeek 官方 Responses API 支持通过 OpenAI Python SDK 调用，`base_url`
 ```text
 --- DeepSeek smoke test result ---
 model: deepseek-flash
-response_id: 2dab74f7-ec41-4f86-af62-8cadcdbe5b44
+response_id: 2da...b44
 input_tokens: 85
 output_tokens: 678
 total_tokens: 763
