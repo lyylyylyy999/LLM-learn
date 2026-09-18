@@ -1,7 +1,7 @@
 import json
+from collections.abc import Generator, Iterable
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from dataclasses import dataclass, asdict
-from typing import Generator, Iterable
 
 
 class InvalidMessageError(Exception):

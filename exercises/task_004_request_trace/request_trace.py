@@ -1,7 +1,8 @@
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal, Callable
 from types import TracebackType
+from typing import Literal, Self
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class RequestTrace:
     def record(self) -> TraceRecord | None:
         return self._record
 
-    def __enter__(self) -> "RequestTrace":
+    def __enter__(self) -> Self:
         if self._entered:
             raise RuntimeError("RequestTrace instance can only be entered once")
 

@@ -1,10 +1,13 @@
+from typing import Any, cast
+from unittest.mock import Mock, call
+
 import pytest
+
 from exercises.task_002_retry_executor.retry_decorator import retry
 from exercises.task_002_retry_executor.sync_retry_executor import (
-    RetryPolicy,
     RetryExhaustedError,
+    RetryPolicy,
 )
-from unittest.mock import Mock, call
 
 
 def test_no_parameter() -> None:
@@ -134,7 +137,7 @@ def test_wrapped_points_to_original_function() -> None:
 
     assert decorated.__name__ == "operation"
     assert decorated.__doc__ == "测试文档"
-    assert getattr(decorated, "__wrapped__") is original
+    assert cast(Any, decorated).__wrapped__ is original
 
 
 def test_decorated_instance_method_can_access_self_state() -> None:

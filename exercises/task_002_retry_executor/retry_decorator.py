@@ -1,11 +1,12 @@
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, TypeVar, ParamSpec
-from exercises.task_002_retry_executor.sync_retry_executor import (
-    execute_with_retry,
-    RetryPolicy,
-)
+from typing import ParamSpec, TypeVar
 
+from exercises.task_002_retry_executor.sync_retry_executor import (
+    RetryPolicy,
+    execute_with_retry,
+)
 
 R = TypeVar("R")
 P = ParamSpec("P")

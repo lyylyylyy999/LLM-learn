@@ -1,6 +1,9 @@
-from unittest.mock import Mock
 from dataclasses import FrozenInstanceError
+from typing import Any, cast
+from unittest.mock import Mock
+
 import pytest
+
 from exercises.task_004_request_trace.request_trace import RequestTrace, TraceRecord
 
 
@@ -13,7 +16,6 @@ def test_normal_record() -> None:
     with trace:
         assert trace.record is None
         assert sink.call_count == 0
-        pass
     record = trace.record
     assert record is not None
     assert record.request_name == "test_normal"
@@ -29,9 +31,8 @@ def test_abnormal_record() -> None:
     clock = Mock(side_effect=[10.00, 11.00])
     trace = RequestTrace(request_name="test_abnormal", sink=sink, clock=clock)
     original = ValueError("test_abnormal_record")
-    with pytest.raises(ValueError, match="test_abnormal_record") as exc_info:
-        with trace:
-            raise original
+    with pytest.raises(ValueError, match="test_abnormal_record") as exc_info, trace:
+        raise original
 
     assert exc_info.value is original
     record = trace.record
@@ -102,12 +103,14 @@ def test_same_instance_used_nested() -> None:
     sink = Mock()
     clock = Mock(side_effect=[10, 11])
     trace = RequestTrace(request_name="test", sink=sink, clock=clock)
-    with pytest.raises(
-        RuntimeError, match="RequestTrace instance can only be entered once"
+    with (
+        pytest.raises(
+            RuntimeError, match="RequestTrace instance can only be entered once"
+        ),
+        trace,
+        trace,
     ):
-        with trace:
-            with trace:
-                pass
+        pass
     assert sink.call_count == 1
     assert clock.call_count == 2
 
@@ -149,13 +152,11 @@ def test_two_instances_are_independent() -> None:
     assert sink1.call_count == 1
     assert sink2.call_count == 1
 
-    with pytest.raises(RuntimeError):
-        with trace1:
-            pass
+    with pytest.raises(RuntimeError), trace1:
+        pass
 
-    with pytest.raises(RuntimeError):
-        with trace2:
-            pass
+    with pytest.raises(RuntimeError), trace2:
+        pass
 
 
 def test_same_clock() -> None:
@@ -178,9 +179,8 @@ def test_no_message_exception() -> None:
     sink = Mock()
     clock = Mock(side_effect=[10.00, 11.00])
     trace = RequestTrace(request_name="test", sink=sink, clock=clock)
-    with pytest.raises(ValueError, match=None):
-        with trace:
-            raise ValueError
+    with pytest.raises(ValueError, match=None), trace:
+        raise ValueError
     record = trace.record
     assert record is not None
     assert record.request_name == "test"
@@ -200,4 +200,4 @@ def test_trace_record_is_frozen() -> None:
     )
 
     with pytest.raises(FrozenInstanceError):
-        setattr(record, "status", "failure")
+        cast(Any, record).status = "failure"

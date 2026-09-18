@@ -1,9 +1,11 @@
-import pytest
 import json
 from pathlib import Path
+
+import pytest
+
 from exercises.task_001_jsonl_chat_log_analyzer.jsonl_chat_log_analyzer import (
-    main,
     InvalidMessageError,
+    main,
 )
 
 

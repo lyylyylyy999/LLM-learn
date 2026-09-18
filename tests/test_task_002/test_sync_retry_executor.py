@@ -1,8 +1,10 @@
-import pytest
 import logging
 import math
 from typing import Any
 from unittest.mock import Mock, call
+
+import pytest
+
 from exercises.task_002_retry_executor.sync_retry_executor import (
     RetryExhaustedError,
     RetryPolicy,

@@ -1,8 +1,11 @@
 import asyncio
 from contextlib import suppress
 from dataclasses import FrozenInstanceError
-import pytest
+from typing import Any, cast
 from unittest.mock import AsyncMock, call
+
+import pytest
+
 from exercises.task_005_async_batch.async_batch import ItemResult, async_map_limited
 
 
@@ -308,7 +311,7 @@ def test_empty_input() -> None:
     ],
 )
 def test_max_concurrency(
-    max_concurrency: object, exception: type[Exception], match: str
+    max_concurrency: Any, exception: type[Exception], match: str
 ) -> None:
     worker = AsyncMock(return_value=["ok"])
 
@@ -336,7 +339,7 @@ def test_result_is_frozen() -> None:
     )
     assert result == [ItemResult(index=0, status="success", value="3", error=None)]
     with pytest.raises(FrozenInstanceError):
-        setattr(result[0], "index", 1)
+        cast(Any, result).index = 10
 
 
 def test_max_concurrency_one() -> None:

@@ -1,17 +1,18 @@
 import logging
 import os
-import pytest
-import httpx2
-import openai
-from exercises.task_006_llm_summary.llm_summary import (
-    llm_summary,
-    SuccessResult,
-    SummarySettings,
-    LLMError,
-)
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import httpx2
+import openai
+import pytest
+
+from exercises.task_006_llm_summary.llm_summary import (
+    LLMError,
+    SuccessResult,
+    SummarySettings,
+    llm_summary,
+)
 
 TEST_MODEL = "deepseek-flash"
 
@@ -313,13 +314,12 @@ def test_failure_log_contains_metadata_and_no_sensitive_data(
         max_output_tokens=300,
     )
 
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(LLMError):
-            llm_summary(
-                client=client,
-                text=input_marker,
-                summary_settings=settings,
-            )
+    with caplog.at_level(logging.ERROR), pytest.raises(LLMError):
+        llm_summary(
+            client=client,
+            text=input_marker,
+            summary_settings=settings,
+        )
 
     # 1. 确实只产生一条预期日志
     assert len(caplog.records) == 1

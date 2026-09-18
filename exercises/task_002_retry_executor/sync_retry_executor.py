@@ -1,9 +1,9 @@
-import time
-from dataclasses import dataclass
 import logging
 import math
-from typing import Callable, TypeVar
-
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -34,10 +34,7 @@ class RetryPolicy:
                 "max_attempts 必须是大于等于 1 的整数，布尔值不视为合法整数"
             )
         if (
-            not (
-                isinstance(self.delay_seconds, int)
-                or isinstance(self.delay_seconds, float)
-            )
+            not (isinstance(self.delay_seconds, (int, float)))
             or not math.isfinite(self.delay_seconds)
             or isinstance(self.delay_seconds, bool)
             or self.delay_seconds < 0
@@ -52,7 +49,7 @@ class RetryPolicy:
             raise ValueError("retryable_exceptions 为非空元组")
         for exc in self.retryable_exceptions:
             if not isinstance(exc, type) or not issubclass(exc, Exception):
-                raise ValueError(
+                raise ValueError(  # noqa: TRY004
                     "retryable_exceptions 的每个元素都必须是 Exception 的异常类"
                 )
 

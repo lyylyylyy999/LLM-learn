@@ -1,7 +1,7 @@
 import asyncio
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal, TypeVar, Callable, Awaitable, Sequence
-
+from typing import Literal, TypeVar
 
 R = TypeVar("R")
 T = TypeVar("T")
@@ -40,7 +40,7 @@ async def async_map_limited(
                     value=value,
                     error=None,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 return ItemResult(
                     index=index,
                     status="failure",

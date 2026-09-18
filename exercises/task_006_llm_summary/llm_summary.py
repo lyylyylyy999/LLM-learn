@@ -1,9 +1,9 @@
-import time
 import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
-from openai import OpenAI
 
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
