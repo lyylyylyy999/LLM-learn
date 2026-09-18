@@ -388,7 +388,7 @@ def test_real_deepseek_smoke() -> None:
     assert result.summary_text.strip()
     assert result.response_id
     assert result.response_model
-    assert result.input_tokens is not None
-    assert result.output_tokens is not None
-    assert result.total_tokens is not None
+    assert result.input_tokens is not None and result.input_tokens > 0
+    assert result.output_tokens is not None and result.output_tokens > 0
+    assert result.total_tokens is not None and result.total_tokens > 0
     assert result.elapsed_seconds >= 0
