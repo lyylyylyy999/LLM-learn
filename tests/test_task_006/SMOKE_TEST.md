@@ -37,16 +37,16 @@ DeepSeek 官方 Responses API 支持通过 OpenAI Python SDK 调用，`base_url`
 
 ### 脱敏运行结果
 
-实际运行日期：2026-09-17
+实际运行日期：2026-09-18
 
 ```text
 --- DeepSeek smoke test result ---
 model: deepseek-flash
-response_id: 2da...b44
-input_tokens: 85
-output_tokens: 678
-total_tokens: 763
-elapsed_seconds: 5.888777
+response_id: 483...672
+input_tokens: 104
+output_tokens: 153
+total_tokens: 257
+elapsed_seconds: 3.265642
 ```
 
 该记录仅保留验证调用成功所需的运行元数据，不保存真实 API Key、完整输入文本或模型输出文本。
