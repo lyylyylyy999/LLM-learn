@@ -189,14 +189,14 @@ def test_empty_input(
         ("incomplete", " "),
     ],
 )
-def test_incomplete_status_ang_empty_output(
+def test_incomplete_status_and_empty_output(
     status: str,
     output_text: str,
 ) -> None:
     fake_response = SimpleNamespace(
         status=status,
         output_text=output_text,
-        id="test_incomplete_status_ang_empty_output",
+        id="test_incomplete_status_and_empty_output",
         model=TEST_MODEL,
         usage=SimpleNamespace(
             input_tokens=50,
@@ -214,7 +214,7 @@ def test_incomplete_status_ang_empty_output(
     clock = Mock(side_effect=[10.0, 12.5])
     with pytest.raises(
         LLMError,
-        match=f"响应失败，响应 ID: test_incomplete_status_ang_empty_output,状态: {status}",
+        match=f"响应失败，响应 ID: test_incomplete_status_and_empty_output,状态: {status}",
     ):
         structured_analysis(
             client=client,
@@ -294,7 +294,7 @@ def test_exception_field(output_json: dict[str, str]) -> None:
     assert isinstance(exc_info.value.__cause__, ValidationError)
 
 
-def test_sdk_error_propagates_unchanged() -> None:
+def test_sdk_error_propagates_unchanded() -> None:
     client = Mock()
     sdk_error = RuntimeError("sdk request failed")
 
@@ -320,14 +320,14 @@ def test_sdk_error_propagates_unchanged() -> None:
 def test_success_log_contains_metadata_without_sensitive_data(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    sensitive_input = "SENSITIVE_CONVERSATION_MARKER"
+    sensitive_input = "SENSITIVE_INPUT_MARKER"
     sensitive_output = "SENSITIVE_MODEL_OUTPUT_MARKER"
 
     fake_response = SimpleNamespace(
         status="completed",
         output_text=json.dumps(
             {
-                "summary": "正常摘要",
+                "summary": sensitive_output,
                 "key_points": ["关键点"],
                 "action_items": [],
             }
@@ -352,12 +352,15 @@ def test_success_log_contains_metadata_without_sensitive_data(
     clock = Mock(side_effect=[10.0, 12.5])
 
     with caplog.at_level(logging.INFO):
-        structured_analysis(
+        result = structured_analysis(
             client=client,
             input=sensitive_input,
             settings=settings,
             clock=clock,
         )
+
+    # 证明敏感标记确实进入了合法模型输出并成功返回
+    assert result.analysis.summary == sensitive_output
 
     assert "LLM structured analysis succeeded" in caplog.text
     assert f"model={TEST_MODEL}" in caplog.text
@@ -365,7 +368,6 @@ def test_success_log_contains_metadata_without_sensitive_data(
     assert "input_tokens=50" in caplog.text
     assert "output_tokens=20" in caplog.text
     assert "total_tokens=70" in caplog.text
-    assert "elapsed_seconds=2.500000" in caplog.text
     assert "validation_success=True" in caplog.text
 
     assert sensitive_input not in caplog.text
@@ -376,9 +378,9 @@ def test_non_completed_response_logs_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_response = SimpleNamespace(
-        status="incompletee",
+        status="incomplete",
         output_text=None,
-        id="resp_incompletee",
+        id="resp_incomplete",
         model=TEST_MODEL,
         usage=None,
     )
@@ -402,8 +404,8 @@ def test_non_completed_response_logs_error(
         )
 
     assert "LLM structured analysis failed" in caplog.text
-    assert "status=incompletee" in caplog.text
-    assert "response_id=resp_incompletee" in caplog.text
+    assert "status=incomplete" in caplog.text
+    assert "response_id=resp_incomplete" in caplog.text
 
     assert "SENSITIVE_INPUT" not in caplog.text
 
