@@ -96,7 +96,7 @@ def test_analysis_result(
         ("   ", ["关键点"], []),
         ("正常摘要", ["   "], []),
         ("正常摘要", ["关键点"], ["   "]),
-    ]
+    ],
 )
 def test_analysis_result_rejects_blank_strings(
     summary: str,
