@@ -5,14 +5,16 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import openai
+from pydantic import ValidationError
 import pytest
 
 from exercises.task_007_structured_analysis.structured_analysis import (
     AnalysisResult,
     LLMError,
     StructuredOutputError,
-    SummarySettings,
+    AnalysisSettings,
     structured_analysis,
+    ANALYSIS_INSTRUCTIONS,
 )
 
 TEST_MODEL = "deepseek-flash"
@@ -53,7 +55,7 @@ def test_analysis_result(
     client = Mock()
     client.responses.create.return_value = fake_response
     input_text = "123"
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=TEST_MODEL,
         max_output_tokens=300,
     )
@@ -73,6 +75,19 @@ def test_analysis_result(
     assert result.output_tokens == 20
     assert result.total_tokens == 70
     assert result.elapsed_seconds == 2.5
+    client.responses.create.assert_called_once_with(
+        model=TEST_MODEL,
+        instructions=ANALYSIS_INSTRUCTIONS,
+        input=input_text,
+        max_output_tokens=300,
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "analysis_result",
+                "schema": AnalysisResult.model_json_schema(),
+            }
+        },
+    )
 
 
 @pytest.mark.parametrize(
@@ -108,7 +123,7 @@ def test_empty_input(
     )
     client = Mock()
     client.responses.create.return_value = fake_response
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=TEST_MODEL,
         max_output_tokens=300,
     )
@@ -128,22 +143,22 @@ def test_empty_input(
     ("status", "output_text"),
     [
         (
-            "incompleted",
+            "incomplet",
             "summary='123', key_points=['1', '2'], action_itmes=['1', '2', '3']",
         ),
         ("completed", ""),
-        ("incompleted", "\t"),
-        ("incompleted", " "),
+        ("incomplet", "\t"),
+        ("incomplet", " "),
     ],
 )
-def test_incompleted_status_ang_empty_output(
+def test_incomplet_status_ang_empty_output(
     status: str,
     output_text: str,
 ) -> None:
     fake_response = SimpleNamespace(
         status=status,
         output_text=output_text,
-        id="test_incompleted_status_ang_empty_output",
+        id="test_incomplet_status_ang_empty_output",
         model=TEST_MODEL,
         usage=SimpleNamespace(
             input_tokens=50,
@@ -154,14 +169,14 @@ def test_incompleted_status_ang_empty_output(
     client = Mock()
     client.responses.create.return_value = fake_response
     input_text = "123"
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=TEST_MODEL,
         max_output_tokens=300,
     )
     clock = Mock(side_effect=[10.0, 12.5])
     with pytest.raises(
         LLMError,
-        match=f"响应失败，响应 ID: test_incompleted_status_ang_empty_output,状态: {status}",
+        match=f"响应失败，响应 ID: test_incomplet_status_ang_empty_output,状态: {status}",
     ):
         structured_analysis(
             client=client,
@@ -197,6 +212,13 @@ def test_incompleted_status_ang_empty_output(
                 "action_items": ["1", "2", "3", "4", "5", "6"],
             }
         ),
+        (
+            {
+                "summary": "123",
+                "key_points": ["1", "2", "3", "4", "5", "6"],
+                "action_items": ["1", "2", "3"],
+            }
+        ),
     ],
 )
 def test_exception_field(output_json: dict[str, str]) -> None:
@@ -218,18 +240,20 @@ def test_exception_field(output_json: dict[str, str]) -> None:
     client = Mock()
     client.responses.create.return_value = fake_response
     input_text = "123"
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=TEST_MODEL,
         max_output_tokens=300,
     )
     clock = Mock(side_effect=[10.0, 12.5])
-    with pytest.raises(StructuredOutputError, match="大模型结构化输出失败"):
+    with pytest.raises(StructuredOutputError, match="大模型结构化输出失败") as exc_info:
         structured_analysis(
             client=client,
             input=input_text,
             settings=settings,
             clock=clock,
         )
+    assert str(exc_info.value) == "大模型结构化输出失败"
+    assert isinstance(exc_info.value.__cause__, ValidationError)
 
 
 def test_sdk_error_propagates_unchanged() -> None:
@@ -238,7 +262,7 @@ def test_sdk_error_propagates_unchanged() -> None:
 
     client.responses.create.side_effect = sdk_error
 
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=TEST_MODEL,
         max_output_tokens=300,
     )
@@ -282,7 +306,7 @@ def test_success_log_contains_metadata_without_sensitive_data(
     client = Mock()
     client.responses.create.return_value = fake_response
 
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=TEST_MODEL,
         max_output_tokens=300,
     )
@@ -310,6 +334,91 @@ def test_success_log_contains_metadata_without_sensitive_data(
     assert sensitive_output not in caplog.text
 
 
+def test_non_completed_response_logs_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_response = SimpleNamespace(
+        status="incomplete",
+        output_text=None,
+        id="resp_incomplete",
+        model=TEST_MODEL,
+        usage=None,
+    )
+
+    client = Mock()
+    client.responses.create.return_value = fake_response
+
+    settings = AnalysisSettings(
+        model=TEST_MODEL,
+        max_output_tokens=300,
+    )
+
+    clock = Mock(side_effect=[10.0, 12.0])
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(LLMError):
+            structured_analysis(
+                client=client,
+                input="SENSITIVE_INPUT",
+                settings=settings,
+                clock=clock,
+            )
+
+    assert "LLM structured analysis failed" in caplog.text
+    assert "status=incomplete" in caplog.text
+    assert "response_id=resp_incomplete" in caplog.text
+
+    assert "SENSITIVE_INPUT" not in caplog.text
+
+
+def test_structured_output_validation_failure_logs_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sensitive_input = "SENSITIVE_INPUT"
+    sensitive_output = "SENSITIVE_MODEL_OUTPUT"
+
+    fake_response = SimpleNamespace(
+        status="completed",
+        output_text=(
+            '{"summary": "'
+            + sensitive_output
+            + '", "key_points": [], "action_items": []}'
+        ),
+        id="resp_invalid",
+        model=TEST_MODEL,
+        usage=None,
+    )
+
+    client = Mock()
+    client.responses.create.return_value = fake_response
+
+    settings = AnalysisSettings(
+        model=TEST_MODEL,
+        max_output_tokens=300,
+    )
+
+    clock = Mock(side_effect=[10.0, 12.0])
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(StructuredOutputError) as exc_info:
+            structured_analysis(
+                client=client,
+                input=sensitive_input,
+                settings=settings,
+                clock=clock,
+            )
+
+    assert isinstance(exc_info.value.__cause__, ValidationError)
+
+    assert "LLM structured analysis failed" in caplog.text
+    assert f"model={TEST_MODEL}" in caplog.text
+    assert "response_id=resp_invalid" in caplog.text
+    assert "validation_success=False" in caplog.text
+
+    assert sensitive_input not in caplog.text
+    assert sensitive_output not in caplog.text
+
+
 def test_structured_analysis_returns_none_tokens_when_usage_missing() -> None:
     fake_response = SimpleNamespace(
         status="completed",
@@ -328,7 +437,7 @@ def test_structured_analysis_returns_none_tokens_when_usage_missing() -> None:
     client = Mock()
     client.responses.create.return_value = fake_response
 
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=TEST_MODEL,
         max_output_tokens=300,
     )
@@ -376,7 +485,7 @@ def test_real_deepseek_structured_analysis_smoke() -> None:
         base_url="https://api.deepseek.com",
     )
 
-    settings = SummarySettings(
+    settings = AnalysisSettings(
         model=model,
         max_output_tokens=2000,
     )

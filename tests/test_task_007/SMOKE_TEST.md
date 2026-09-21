@@ -11,7 +11,7 @@ $env:DEEPSEEK_API_KEY="<real-key>"
 $env:DEEPSEEK_MODEL="deepseek-flash"
 $env:RUN_DEEPSEEK_SMOKE="1"
 
-python -m pytest tests/test_task_006/test_llm_summary.py -m integration -q
+python -m pytest tests/test_task_007/test_structured_analysis.py -m integration -q
 ```
 
 其中：
@@ -41,7 +41,7 @@ DeepSeek 官方 Responses API 支持通过 OpenAI Python SDK 调用，`base_url`
 ```text
 --- DeepSeek structured analysis smoke test result ---
 model: deepseek-flash
-response_id: d8221a8d-027d-46e8-88a3-2602a321f0d6
+response_id: d82...0d6
 input_tokens: 390
 output_tokens: 929
 total_tokens: 1319
