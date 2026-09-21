@@ -294,7 +294,7 @@ def test_exception_field(output_json: dict[str, str]) -> None:
     assert isinstance(exc_info.value.__cause__, ValidationError)
 
 
-def test_sdk_error_propagates_unchanded() -> None:
+def test_sdk_error_propagates_unchanged() -> None:
     client = Mock()
     sdk_error = RuntimeError("sdk request failed")
 
@@ -363,6 +363,7 @@ def test_success_log_contains_metadata_without_sensitive_data(
     assert result.analysis.summary == sensitive_output
 
     assert "LLM structured analysis succeeded" in caplog.text
+    assert "elapsed_seconds=2.500000" in caplog.text
     assert f"model={TEST_MODEL}" in caplog.text
     assert "response_id=resp_123" in caplog.text
     assert "input_tokens=50" in caplog.text
