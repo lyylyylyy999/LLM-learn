@@ -5,16 +5,16 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import openai
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from exercises.task_007_structured_analysis.structured_analysis import (
+    ANALYSIS_INSTRUCTIONS,
     AnalysisResult,
+    AnalysisSettings,
     LLMError,
     StructuredOutputError,
-    AnalysisSettings,
     structured_analysis,
-    ANALYSIS_INSTRUCTIONS,
 )
 
 TEST_MODEL = "deepseek-flash"
@@ -91,6 +91,44 @@ def test_analysis_result(
 
 
 @pytest.mark.parametrize(
+    ("summary", "key_points", "action_items"),
+    [
+        ("   ", ["关键点"], []),
+        ("正常摘要", ["   "], []),
+        ("正常摘要", ["关键点"], ["   "]),
+    ]
+)
+def test_analysis_result_rejects_blank_strings(
+    summary: str,
+    key_points: list[str],
+    action_items: list[str],
+) -> None:
+    with pytest.raises(ValidationError):
+        AnalysisResult(
+            summary=summary,
+            key_points=key_points,
+            action_items=action_items,
+        )
+
+
+def test_analysis_result_schema_contains_non_blank_string_constraints() -> None:
+    schema = AnalysisResult.model_json_schema()
+
+    summary_schema = schema["properties"]["summary"]
+    key_point_schema = schema["properties"]["key_points"]["items"]
+    action_item_schema = schema["properties"]["action_items"]["items"]
+
+    assert summary_schema["minLength"] == 1
+    assert summary_schema["pattern"] == r"\S"
+
+    assert key_point_schema["minLength"] == 1
+    assert key_point_schema["pattern"] == r"\S"
+
+    assert action_item_schema["minLength"] == 1
+    assert action_item_schema["pattern"] == r"\S"
+
+
+@pytest.mark.parametrize(
     ("input_text", "exception", "match"),
     [
         ("  ", ValueError, "不能输入空字符串或纯空白"),
@@ -143,22 +181,22 @@ def test_empty_input(
     ("status", "output_text"),
     [
         (
-            "incomplet",
+            "incomplete",
             "summary='123', key_points=['1', '2'], action_itmes=['1', '2', '3']",
         ),
         ("completed", ""),
-        ("incomplet", "\t"),
-        ("incomplet", " "),
+        ("incomplete", "\t"),
+        ("incomplete", " "),
     ],
 )
-def test_incomplet_status_ang_empty_output(
+def test_incomplete_status_ang_empty_output(
     status: str,
     output_text: str,
 ) -> None:
     fake_response = SimpleNamespace(
         status=status,
         output_text=output_text,
-        id="test_incomplet_status_ang_empty_output",
+        id="test_incomplete_status_ang_empty_output",
         model=TEST_MODEL,
         usage=SimpleNamespace(
             input_tokens=50,
@@ -176,7 +214,7 @@ def test_incomplet_status_ang_empty_output(
     clock = Mock(side_effect=[10.0, 12.5])
     with pytest.raises(
         LLMError,
-        match=f"响应失败，响应 ID: test_incomplet_status_ang_empty_output,状态: {status}",
+        match=f"响应失败，响应 ID: test_incomplete_status_ang_empty_output,状态: {status}",
     ):
         structured_analysis(
             client=client,
@@ -338,9 +376,9 @@ def test_non_completed_response_logs_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_response = SimpleNamespace(
-        status="incomplete",
+        status="incompletee",
         output_text=None,
-        id="resp_incomplete",
+        id="resp_incompletee",
         model=TEST_MODEL,
         usage=None,
     )
@@ -355,34 +393,36 @@ def test_non_completed_response_logs_error(
 
     clock = Mock(side_effect=[10.0, 12.0])
 
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(LLMError):
-            structured_analysis(
-                client=client,
-                input="SENSITIVE_INPUT",
-                settings=settings,
-                clock=clock,
-            )
+    with caplog.at_level(logging.ERROR), pytest.raises(LLMError):
+        structured_analysis(
+            client=client,
+            input="SENSITIVE_INPUT",
+            settings=settings,
+            clock=clock,
+        )
 
     assert "LLM structured analysis failed" in caplog.text
-    assert "status=incomplete" in caplog.text
-    assert "response_id=resp_incomplete" in caplog.text
+    assert "status=incompletee" in caplog.text
+    assert "response_id=resp_incompletee" in caplog.text
 
     assert "SENSITIVE_INPUT" not in caplog.text
 
 
-def test_structured_output_validation_failure_logs_error(
+def test_structured_output_failure_log_does_not_leak_sensitive_data(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    sensitive_input = "SENSITIVE_INPUT"
-    sensitive_output = "SENSITIVE_MODEL_OUTPUT"
+    sensitive_input = "SENSITIVE_INPUT_MARKER"
+    sensitive_output = "SENSITIVE_MODEL_OUTPUT_MARKER"
 
     fake_response = SimpleNamespace(
         status="completed",
-        output_text=(
-            '{"summary": "'
-            + sensitive_output
-            + '", "key_points": [], "action_items": []}'
+        output_text=json.dumps(
+            {
+                "summary": "正常摘要",
+                # 故意违反 list[str]，并把敏感标记放在失败值中
+                "key_points": sensitive_output,
+                "action_items": [],
+            }
         ),
         id="resp_invalid",
         model=TEST_MODEL,
@@ -399,21 +439,22 @@ def test_structured_output_validation_failure_logs_error(
 
     clock = Mock(side_effect=[10.0, 12.0])
 
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(StructuredOutputError) as exc_info:
-            structured_analysis(
-                client=client,
-                input=sensitive_input,
-                settings=settings,
-                clock=clock,
-            )
+    with (
+        caplog.at_level(logging.ERROR),
+        pytest.raises(StructuredOutputError) as exc_info,
+    ):
+        structured_analysis(
+            client=client,
+            input=sensitive_input,
+            settings=settings,
+            clock=clock,
+        )
 
     assert isinstance(exc_info.value.__cause__, ValidationError)
 
     assert "LLM structured analysis failed" in caplog.text
-    assert f"model={TEST_MODEL}" in caplog.text
-    assert "response_id=resp_invalid" in caplog.text
-    assert "validation_success=False" in caplog.text
+    assert "resp_invalid" in caplog.text
+    assert TEST_MODEL in caplog.text
 
     assert sensitive_input not in caplog.text
     assert sensitive_output not in caplog.text

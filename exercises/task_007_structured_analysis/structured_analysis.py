@@ -2,9 +2,10 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Annotated
 
 from openai import OpenAI
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +35,22 @@ class AnalysisSettings:
             raise ValueError("max_output_tokens 不能小于 16")
 
 
+NonBlankStr = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        pattern=r"\S",
+    ),
+]
+
+
 class AnalysisResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    summary: str = Field(min_length=1)
-    key_points: list[str] = Field(min_length=1, max_length=5)
-    action_items: list[str] = Field(min_length=0, max_length=5)
+    summary: NonBlankStr
+    key_points: list[NonBlankStr] = Field(min_length=1, max_length=5)
+    action_items: list[NonBlankStr] = Field(max_length=5)
 
 
 @dataclass(frozen=True)
@@ -94,7 +105,7 @@ def structured_analysis(
         try:
             result = AnalysisResult.model_validate_json(response.output_text)
         except ValidationError as exc:
-            logger.exception(
+            logger.error(
                 "LLM structured analysis failed: "
                 "model=%s response_id=%s "
                 "input_tokens=%s output_tokens=%s total_tokens=%s "

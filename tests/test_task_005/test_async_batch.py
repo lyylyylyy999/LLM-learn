@@ -339,7 +339,7 @@ def test_result_is_frozen() -> None:
     )
     assert result == [ItemResult(index=0, status="success", value="3", error=None)]
     with pytest.raises(FrozenInstanceError):
-        cast(Any, result).index = 10
+        cast(Any, result[0]).index = 10
 
 
 def test_max_concurrency_one() -> None:
