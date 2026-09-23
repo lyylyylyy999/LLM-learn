@@ -16,7 +16,6 @@ from exercises.task_008_llm_evaluation.llm_evaluation import (
     verify_evaluation_set,
 )
 
-
 # ============================================================
 # Test helpers
 # ============================================================
@@ -72,14 +71,10 @@ def make_case(
             )
         ],
         expected_summary=(
-            [expected("summary", "summary phrase")]
-            if summary is None
-            else summary
+            [expected("summary", "summary phrase")] if summary is None else summary
         ),
         expected_key_points=(
-            [expected("key point", "key phrase")]
-            if key_points is None
-            else key_points
+            [expected("key point", "key phrase")] if key_points is None else key_points
         ),
         expected_action_items=(
             [expected("action", "action phrase")]
@@ -93,10 +88,7 @@ def write_jsonl(
     path: Path,
     *records: dict[str, Any],
 ) -> None:
-    text = "\n".join(
-        json.dumps(record, ensure_ascii=False)
-        for record in records
-    )
+    text = "\n".join(json.dumps(record, ensure_ascii=False) for record in records)
 
     path.write_text(
         text + "\n",
@@ -110,9 +102,7 @@ def write_jsonl(
 
 
 def test_load_jsonl() -> None:
-    cases = verify_evaluation_set(
-        Path("evals/task_008/cases.jsonl")
-    )
+    cases = verify_evaluation_set(Path("evals/task_008/cases.jsonl"))
 
     assert len(cases) == 3
     assert cases[0].case_id == "case_001_knowledge_only"
@@ -130,11 +120,7 @@ def test_skip_blank_lines(tmp_path: Path) -> None:
     }
 
     path.write_text(
-        "\n"
-        + json.dumps(case1)
-        + "\n\n"
-        + json.dumps(case2)
-        + "\n",
+        "\n" + json.dumps(case1) + "\n\n" + json.dumps(case2) + "\n",
         encoding="utf-8",
     )
 
@@ -311,9 +297,7 @@ def test_blank_acceptable_phrase_is_rejected(
     path = tmp_path / "cases.jsonl"
 
     case = valid_case()
-    case["expected_summary"][0]["acceptable_phrases"] = [
-        phrase
-    ]
+    case["expected_summary"][0]["acceptable_phrases"] = [phrase]
 
     write_jsonl(path, case)
 
@@ -332,10 +316,7 @@ def test_duplicate_case_id_and_error_does_not_expose_conversation(
     first = valid_case()
     second = valid_case()
 
-    sensitive_content = (
-        "SECRET-CONVERSATION-CONTENT-"
-        "THIS-MUST-NOT-APPEAR-IN-ERROR"
-    )
+    sensitive_content = "SECRET-CONVERSATION-CONTENT-THIS-MUST-NOT-APPEAR-IN-ERROR"
 
     second["conversation"][0]["content"] = sensitive_content
 
@@ -382,10 +363,7 @@ def test_any_acceptable_phrase_can_match_concept() -> None:
         )
     ]
 
-    output = (
-        "The system should use an automatic retry "
-        "when the request fails."
-    )
+    output = "The system should use an automatic retry when the request fails."
 
     assert count_matched_concepts(output, concepts) == 1
 
@@ -399,10 +377,7 @@ def test_same_concept_is_counted_once_when_two_phrases_match() -> None:
         )
     ]
 
-    output = (
-        "The system uses a retry mechanism "
-        "and also supports automatic retry."
-    )
+    output = "The system uses a retry mechanism and also supports automatic retry."
 
     # 两个 phrase 同时出现，
     # 但计分单位是 concept，因此只能算 1 次。
@@ -486,11 +461,7 @@ def test_summary_phrase_does_not_match_other_sections() -> None:
     )
 
     result = AnalysisResult(
-        summary=(
-            "summary phrase "
-            "key point phrase "
-            "action item phrase"
-        ),
+        summary=("summary phrase key point phrase action item phrase"),
         key_points=[
             "没有匹配内容",
         ],
@@ -849,11 +820,7 @@ def test_eval_result_is_immutable() -> None:
     assert eval_result.passed is True
 
     with pytest.raises(ValidationError):
-        setattr(
-            eval_result,
-            "passed",
-            False,
-        )
+        eval_result.passed = False
 
     # 修改失败后原值仍然存在。
     assert eval_result.passed is True

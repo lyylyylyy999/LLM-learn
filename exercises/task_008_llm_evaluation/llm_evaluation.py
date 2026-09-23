@@ -152,26 +152,16 @@ def evaluation(case: EvalCase, result: AnalysisResult) -> EvalResult:
     else:
         no_action_items_correct = not result.action_items
 
-    summary_passed = (
-        summary_coverage is None
-        or summary_coverage == 1.0
-    )
+    summary_passed = summary_coverage is None or summary_coverage == 1.0
 
-    key_points_passed = (
-        key_points_coverage is None
-        or key_points_coverage == 1.0
-    )
+    key_points_passed = key_points_coverage is None or key_points_coverage == 1.0
 
     if case.expected_action_items:
         action_items_passed = action_items_coverage == 1.0
     else:
         action_items_passed = no_action_items_correct is True
 
-    passed = (
-        summary_passed
-        and key_points_passed
-        and action_items_passed
-    )
+    passed = summary_passed and key_points_passed and action_items_passed
 
     return EvalResult(
         summary_Expected_count=summary_Expected_count,
