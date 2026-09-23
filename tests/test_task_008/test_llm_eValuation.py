@@ -1,4 +1,5 @@
 import json
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -824,9 +825,6 @@ def test_eval_result_is_immutable() -> None:
 
     # 修改失败后原值仍然存在。
     assert eval_result.passed is True
-
-
-import traceback
 
 
 def test_validation_traceback_does_not_expose_sensitive_conversation(
