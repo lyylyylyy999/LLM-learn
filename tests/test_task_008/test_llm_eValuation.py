@@ -824,3 +824,33 @@ def test_eval_result_is_immutable() -> None:
 
     # 修改失败后原值仍然存在。
     assert eval_result.passed is True
+
+
+import traceback
+
+
+def test_validation_traceback_does_not_expose_sensitive_conversation(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "cases.jsonl"
+
+    sensitive = "SECRET-FULL-CONVERSATION-MARKER"
+
+    case = valid_case()
+
+    # conversation 应为 list[Message]，故意传入敏感字符串，
+    # 确保进入 Pydantic ValidationError 路径。
+    case["conversation"] = sensitive
+
+    path.write_text(
+        json.dumps(case, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(EvaluationDataError) as exc_info:
+        verify_evaluation_set(path)
+
+    full_traceback = "".join(traceback.format_exception(exc_info.value))
+
+    assert "第1行数据校验失败" in full_traceback
+    assert sensitive not in full_traceback

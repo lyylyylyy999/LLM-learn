@@ -51,9 +51,9 @@ class EvalCase(BaseModel):
 class EvalResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    summary_Expected_count: int
-    key_points_Expected_count: int
-    action_items_Expected_count: int
+    summary_expected_count: int
+    key_points_expected_count: int
+    action_items_expected_count: int
     summary_match_count: int
     key_points_match_count: int
     action_items_match_count: int
@@ -81,10 +81,10 @@ def verify_evaluation_set(path: Path | str) -> list[EvalCase]:
             try:
                 raw = json.loads(line)
                 case = EvalCase.model_validate(raw)
-            except json.JSONDecodeError as exc:
-                raise EvaluationDataError(f"第{line_number}行存在不合法 JSON") from exc
+            except json.JSONDecodeError:
+                raise EvaluationDataError(f"第{line_number}行存在不合法 JSON") from None
             except ValidationError:
-                raise EvaluationDataError(f"第{line_number}行数据校验失败")
+                raise EvaluationDataError(f"第{line_number}行数据校验失败") from None
             if case.case_id in seen_case_ids:
                 raise EvaluationDataError(f"在第{line_number}行 case_id 存在重复")
             seen_case_ids.add(case.case_id)
@@ -115,9 +115,9 @@ def count_matched_concepts(
 
 
 def evaluation(case: EvalCase, result: AnalysisResult) -> EvalResult:
-    summary_Expected_count = len(case.expected_summary)
-    key_points_Expected_count = len(case.expected_key_points)
-    action_items_Expected_count = len(case.expected_action_items)
+    summary_expected_count = len(case.expected_summary)
+    key_points_expected_count = len(case.expected_key_points)
+    action_items_expected_count = len(case.expected_action_items)
     summary_match_count = count_matched_concepts(
         result.summary,
         case.expected_summary,
@@ -132,17 +132,17 @@ def evaluation(case: EvalCase, result: AnalysisResult) -> EvalResult:
     )
 
     summary_coverage = (
-        summary_match_count / summary_Expected_count
+        summary_match_count / summary_expected_count
         if len(case.expected_summary) != 0
         else None
     )
     key_points_coverage = (
-        key_points_match_count / key_points_Expected_count
+        key_points_match_count / key_points_expected_count
         if len(case.expected_key_points) != 0
         else None
     )
     action_items_coverage = (
-        action_items_match_count / action_items_Expected_count
+        action_items_match_count / action_items_expected_count
         if len(case.expected_action_items) != 0
         else None
     )
@@ -164,9 +164,9 @@ def evaluation(case: EvalCase, result: AnalysisResult) -> EvalResult:
     passed = summary_passed and key_points_passed and action_items_passed
 
     return EvalResult(
-        summary_Expected_count=summary_Expected_count,
-        key_points_Expected_count=key_points_Expected_count,
-        action_items_Expected_count=action_items_Expected_count,
+        summary_expected_count=summary_expected_count,
+        key_points_expected_count=key_points_expected_count,
+        action_items_expected_count=action_items_expected_count,
         summary_match_count=summary_match_count,
         key_points_match_count=key_points_match_count,
         action_items_match_count=action_items_match_count,
