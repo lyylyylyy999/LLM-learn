@@ -4,7 +4,14 @@ from pathlib import Path
 import pytest
 
 from exercises.task_007_structured_analysis.structured_analysis import AnalysisResult
-from exercises.task_008_llm_evaluation.llm_evaluation import EvalCase, ExceptedContent, Message, count_matched_concepts, evaluation, verify_evaluation_set
+from exercises.task_008_llm_evaluation.llm_evaluation import (
+    EvalCase,
+    ExceptedContent,
+    Message,
+    count_matched_concepts,
+    evaluation,
+    verify_evaluation_set,
+)
 
 
 def valid_case() -> dict:
@@ -128,11 +135,7 @@ def test_same_case_id(tmp_path: Path) -> None:
     path = tmp_path / "test.jsonl"
     case = valid_case()
     path.write_text(
-        "\n"
-        + json.dumps(case)
-        + "\n\n"
-        + json.dumps(case)
-        + "\n",
+        "\n" + json.dumps(case) + "\n\n" + json.dumps(case) + "\n",
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="在第4行 case_id 存在重复"):
@@ -211,11 +214,7 @@ def test_summary_phrase_does_not_match_other_sections() -> None:
     )
 
     result = AnalysisResult(
-        summary=(
-            "summary phrase "
-            "key point phrase "
-            "action item phrase"
-        ),
+        summary=("summary phrase key point phrase action item phrase"),
         key_points=["没有匹配内容"],
         action_items=["没有匹配内容"],
     )
@@ -230,9 +229,7 @@ def test_summary_phrase_does_not_match_other_sections() -> None:
 def make_eval_case() -> EvalCase:
     return EvalCase(
         case_id="case-001",
-        conversation=[
-            Message(role="user", content="test")
-        ],
+        conversation=[Message(role="user", content="test")],
         expected_summary=[
             ExceptedContent(
                 name="summary-1",
@@ -332,9 +329,7 @@ def test_evaluation_nothing_matched() -> None:
 def test_case_with_action_items() -> None:
     case = EvalCase(
         case_id="case-with-actions",
-        conversation=[
-            Message(role="user", content="test")
-        ],
+        conversation=[Message(role="user", content="test")],
         expected_summary=[
             ExceptedContent(
                 name="summary",
@@ -376,9 +371,7 @@ def test_case_with_action_items() -> None:
 def test_case_without_action_items() -> None:
     case = EvalCase(
         case_id="case-without-actions",
-        conversation=[
-            Message(role="user", content="test")
-        ],
+        conversation=[Message(role="user", content="test")],
         expected_summary=[
             ExceptedContent(
                 name="summary",

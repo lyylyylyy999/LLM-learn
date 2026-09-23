@@ -1,12 +1,17 @@
 import json
-from pathlib import Path
 import re
-from typing import Annotated, Literal
+from pathlib import Path
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, ValidationError, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+)
 
 from exercises.task_007_structured_analysis.structured_analysis import AnalysisResult
-
 
 NonBlankStr = Annotated[
     str,
@@ -53,7 +58,7 @@ class EvalResult(BaseModel):
     passed: bool
 
 
-def verify_evaluation_set(path: Path) -> list[EvalCase]:
+def verify_evaluation_set(path: Path | str) -> list[EvalCase]:
     path = Path(path)
     cases: list[EvalCase] = []
     seen_case_ids: set[str] = set()
@@ -68,7 +73,7 @@ def verify_evaluation_set(path: Path) -> list[EvalCase]:
                 case = EvalCase.model_validate(raw)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"第{line_number}行存在不合法 JSON") from exc
-            except ValidationError as exc:
+            except ValidationError:
                 raise ValueError(f"第{line_number}行数据校验失败")
             if case.case_id in seen_case_ids:
                 raise ValueError(f"在第{line_number}行 case_id 存在重复")
@@ -114,17 +119,25 @@ def evaluation(case: EvalCase, result: AnalysisResult) -> EvalResult:
         result.action_items,
         case.expected_action_items,
     )
- 
+
     summary_coverage = summary_match_count / summary_excepted_count
     key_points_coverage = key_points_match_count / key_points_excepted_count
-    action_items_coverage = action_items_match_count / action_items_excepted_count if len(case.expected_action_items) != 0 else None
+    action_items_coverage = (
+        action_items_match_count / action_items_excepted_count
+        if len(case.expected_action_items) != 0
+        else None
+    )
 
     if case.expected_action_items == []:
         no_action_items_correct = True
     else:
         no_action_items_correct = None
 
-    if summary_coverage == 1 and key_points_coverage == 1 and (action_items_coverage == 1 or action_items_coverage is None):
+    if (
+        summary_coverage == 1
+        and key_points_coverage == 1
+        and (action_items_coverage == 1 or action_items_coverage is None)
+    ):
         passed = True
     else:
         passed = False
