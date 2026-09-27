@@ -38,7 +38,7 @@ def create_app(analyzer: Analyzer) -> FastAPI:
             return analyzer(request.conversation)
         except LLMError:
             raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, 
+                status_code=status.HTTP_502_BAD_GATEWAY,
                 detail={
                     "code": "llm_response_error",
                     "message": "这是大模型响应错误",

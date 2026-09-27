@@ -131,9 +131,7 @@ def test_invalid_request_returns_422_without_calling_analyzer(
             "llm_response_error",
         ),
         (
-            StructuredOutputError(
-                "解析失败：sk-task-009-secret；原始输出：不要泄露"
-            ),
+            StructuredOutputError("解析失败：sk-task-009-secret；原始输出：不要泄露"),
             "structured_output_error",
         ),
     ],
@@ -189,4 +187,3 @@ def test_openapi_describes_request_and_success_response_models() -> None:
 
     assert request_schema["$ref"].endswith("/AnalysisRequest")
     assert response_schema["$ref"].endswith("/AnalysisResponse")
-
