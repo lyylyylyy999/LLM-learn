@@ -38,12 +38,19 @@ def create_app(analyzer: Analyzer) -> FastAPI:
             return analyzer(request.conversation)
         except LLMError:
             raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail="llm_response_error"
+                status_code=status.HTTP_502_BAD_GATEWAY, 
+                detail={
+                    "code": "llm_response_error",
+                    "message": "这是大模型响应错误",
+                },
             )
         except StructuredOutputError:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="structured_output_error",
+                detail={
+                    "code": "structured_output_error",
+                    "message": "这是数据校验失败",
+                },
             )
 
     return app
