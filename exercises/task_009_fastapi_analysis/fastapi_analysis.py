@@ -53,4 +53,28 @@ def create_app(analyzer: Analyzer) -> FastAPI:
                 },
             )
 
+    @app.get("/analyses", response_model=AnalysisResponse)
+    def analyze_get(conversation: NonBlankStr) -> AnalysisResponse:
+        return analyze(AnalysisRequest(conversation=conversation))
+
     return app
+
+
+def create_live_app() -> FastAPI:
+    import os
+
+    from openai import OpenAI
+
+    from exercises.task_007_structured_analysis.structured_analysis import (
+        AnalysisSettings,
+        structured_analysis,
+    )
+
+    api_key = os.environ["DEEPSEEK_API_KEY"]
+    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    settings = AnalysisSettings(model="deepseek-flash", max_output_tokens=2000)
+
+    def analyzer(conversation: str) -> AnalysisResponse:
+        return structured_analysis(client, conversation, settings)
+
+    return create_app(analyzer)
