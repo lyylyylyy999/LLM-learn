@@ -17,13 +17,13 @@ $env:DEEPSEEK_MAX_OUTPUT_TOKENS="2000"
 在仓库根目录使用 Uvicorn 的应用工厂模式启动服务：
 
 ```powershell
-python -m uvicorn <模块路径>:create_api_app --factory --reload
+python -m uvicorn <模块路径>:create_api_app --factory --reload --host 127.0.0.1 --port 8000
 ```
 
 其中 `<模块路径>` 替换为实际包含 `create_api_app()` 的 Python 模块路径，例如：
 
 ```powershell
-python -m uvicorn exercises.task_010_service_bootstrap.service_bootstrap:create_api_app --factory --reload
+python -m uvicorn exercises.task_010_service_bootstrap.service_bootstrap:create_api_app --factory --reload --host 127.0.0.1 --port 8000
 ```
 
 服务仅监听本机 `127.0.0.1`。
