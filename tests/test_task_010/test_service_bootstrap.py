@@ -1,5 +1,6 @@
 import importlib
 import json
+import traceback
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -99,6 +100,26 @@ def test_invalid_token_limit_fails_during_app_creation(
 
     assert "DEEPSEEK_MAX_OUTPUT_TOKENS" in str(exc_info.value)
     assert "sk-task-010-test-key" not in str(exc_info.value)
+    client_factory.assert_not_called()
+
+
+def test_invalid_token_limit_does_not_leak_value_in_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    set_valid_config(monkeypatch)
+    sensitive_marker = "sk-task-010-misplaced-secret"
+    monkeypatch.setenv("DEEPSEEK_MAX_OUTPUT_TOKENS", sensitive_marker)
+    client_factory = Mock(side_effect=AssertionError("invalid config reached client"))
+    monkeypatch.setattr(bootstrap.openai, "OpenAI", client_factory)
+
+    with pytest.raises(Exception) as exc_info:
+        bootstrap.create_api_app()
+
+    formatted_traceback = "".join(traceback.format_exception(exc_info.value))
+    assert "DEEPSEEK_MAX_OUTPUT_TOKENS" in formatted_traceback
+    assert sensitive_marker not in formatted_traceback
+    assert sensitive_marker not in caplog.text
     client_factory.assert_not_called()
 
 

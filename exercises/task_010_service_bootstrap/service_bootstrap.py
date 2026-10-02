@@ -23,8 +23,8 @@ def create_api_app() -> FastAPI:
         deepseek_max_output_tokens = int(
             os.getenv("DEEPSEEK_MAX_OUTPUT_TOKENS", "2000")
         )
-    except ValueError as exc:
-        raise ValueError("DEEPSEEK_MAX_OUTPUT_TOKENS 必须是整数且不小于 16") from exc
+    except ValueError:
+        raise ValueError("DEEPSEEK_MAX_OUTPUT_TOKENS 必须是整数且不小于 16") from None
     if deepseek_max_output_tokens < 16:
         raise ValueError("DEEPSEEK_MAX_OUTPUT_TOKENS 必须是整数且不小于 16")
     client = openai.OpenAI(
