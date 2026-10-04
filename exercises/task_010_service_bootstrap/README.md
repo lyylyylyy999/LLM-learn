@@ -16,7 +16,7 @@ $env:DEEPSEEK_MAX_OUTPUT_TOKENS="2000"
 $env:DEEPSEEK_TIMEOUT_SECONDS="30.0"
 ```
 
-OpenAI 默认重试 2 次，max_retries=0 表示不允许重试，
+OpenAI 默认重试 2 次，max_retries=0 表示不允许重试。
 
 在仓库根目录使用 Uvicorn 的应用工厂模式启动服务：
 
