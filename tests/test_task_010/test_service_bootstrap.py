@@ -14,6 +14,7 @@ def set_valid_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-task-010-test-key")
     monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-test-model")
     monkeypatch.delenv("DEEPSEEK_MAX_OUTPUT_TOKENS", raising=False)
+    monkeypatch.delenv("DEEPSEEK_TIMEOUT_SECONDS", raising=False)
 
 
 def fake_client_with_completed_response() -> Mock:
@@ -164,6 +165,8 @@ def test_valid_post_uses_existing_analysis_chain_without_network(
     client_factory.assert_called_once_with(
         api_key="sk-task-010-test-key",
         base_url="https://api.deepseek.com",
+        timeout=30.0,
+        max_retries=0,
     )
     fake_client.responses.create.assert_called_once()
     call_kwargs = fake_client.responses.create.call_args.kwargs

@@ -5,6 +5,7 @@
 - `DEEPSEEK_API_KEY`：DeepSeek API 密钥，必填且不能为空。示例中只能使用占位文本，例如 `your-deepseek-api-key`。
 - `DEEPSEEK_MODEL`：调用的 DeepSeek 模型名称，必填且不能为空。
 - `DEEPSEEK_MAX_OUTPUT_TOKENS`：最大输出 token 数，可选；未设置时默认使用 `2000`，必须是整数且不小于 `16`。
+- `DEEPSEEK_TIMEOUT_SECONDS`：最大响应时间，可选：未设置时默认使用 `30.0`，必须能够解析为浮点数，并且是有限的正数。
 
 PowerShell 示例：
 
@@ -12,7 +13,10 @@ PowerShell 示例：
 $env:DEEPSEEK_API_KEY="your-deepseek-api-key"
 $env:DEEPSEEK_MODEL="your-model-name"
 $env:DEEPSEEK_MAX_OUTPUT_TOKENS="2000"
+$env:DEEPSEEK_TIMEOUT_SECONDS="30.0"
 ```
+
+OpenAI 默认重试 2 次，max_retries=0 表示不允许重试，
 
 在仓库根目录使用 Uvicorn 的应用工厂模式启动服务：
 

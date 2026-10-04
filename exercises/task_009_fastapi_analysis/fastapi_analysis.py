@@ -42,7 +42,7 @@ def create_app(analyzer: Analyzer) -> FastAPI:
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail={
                     "code": "llm_timeout",
-                    "message": "非空且不包含上游异常细节的通用提示",
+                    "message": "大模型服务响应超时，请稍后重试",
                 },
             )
         except LLMError:
