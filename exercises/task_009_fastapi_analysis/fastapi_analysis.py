@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 from exercises.task_007_structured_analysis.structured_analysis import (
     AnalysisResponse,
     LLMError,
+    LLMTimeoutError,
     StructuredOutputError,
 )
 
@@ -36,6 +37,14 @@ def create_app(analyzer: Analyzer) -> FastAPI:
     def analyze(request: AnalysisRequest) -> AnalysisResponse:
         try:
             return analyzer(request.conversation)
+        except LLMTimeoutError:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail={
+                    "code": "llm_timeout",
+                    "message": "非空且不包含上游异常细节的通用提示",
+                },
+            )
         except LLMError:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,

@@ -1,3 +1,4 @@
+import math
 import os
 
 import openai
@@ -27,9 +28,29 @@ def create_api_app() -> FastAPI:
         raise ValueError("DEEPSEEK_MAX_OUTPUT_TOKENS 必须是整数且不小于 16") from None
     if deepseek_max_output_tokens < 16:
         raise ValueError("DEEPSEEK_MAX_OUTPUT_TOKENS 必须是整数且不小于 16")
+    try:
+        deepseek_timeout_seconds = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "30.0"))
+    except ValueError:
+        raise ValueError(
+            "DEEPSEEK_TIMEOUT_SECONDS 必须能够解析为浮点数，并且是有限的正数"
+        ) from None
+    if deepseek_timeout_seconds <= 0:
+        raise ValueError(
+            "DEEPSEEK_TIMEOUT_SECONDS 必须能够解析为浮点数，并且是有限的正数"
+        )
+    if math.isnan(deepseek_timeout_seconds):
+        raise ValueError(
+            "DEEPSEEK_TIMEOUT_SECONDS 必须能够解析为浮点数，并且是有限的正数"
+        )
+    if math.isinf(deepseek_timeout_seconds):
+        raise ValueError(
+            "DEEPSEEK_TIMEOUT_SECONDS 必须能够解析为浮点数，并且是有限的正数"
+        )
     client = openai.OpenAI(
         api_key=api_key,
         base_url="https://api.deepseek.com",
+        timeout=deepseek_timeout_seconds,
+        max_retries=0,
     )
     settings = AnalysisSettings(
         model=model,

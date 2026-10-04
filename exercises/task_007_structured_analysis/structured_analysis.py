@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
 
+import openai
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
@@ -72,6 +73,10 @@ class StructuredOutputError(Exception):
     pass
 
 
+class LLMTimeoutError(LLMError):
+    pass
+
+
 def structured_analysis(
     client: OpenAI,
     input: str,
@@ -81,19 +86,22 @@ def structured_analysis(
     if input.strip() == "":
         raise ValueError("不能输入空字符串或纯空白")
     start = clock()
-    response = client.responses.create(
-        input=input,
-        instructions=ANALYSIS_INSTRUCTIONS,
-        max_output_tokens=settings.max_output_tokens,
-        model=settings.model,
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "analysis_result",
-                "schema": AnalysisResult.model_json_schema(),
-            }
-        },
-    )
+    try:
+        response = client.responses.create(
+            input=input,
+            instructions=ANALYSIS_INSTRUCTIONS,
+            max_output_tokens=settings.max_output_tokens,
+            model=settings.model,
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "analysis_result",
+                    "schema": AnalysisResult.model_json_schema(),
+                }
+            },
+        )
+    except openai.APITimeoutError as exc:
+        raise LLMTimeoutError("响应超时") from exc
     if response.status == "completed" and response.output_text.strip() != "":
         end = clock()
         elapsed_seconds = end - start
