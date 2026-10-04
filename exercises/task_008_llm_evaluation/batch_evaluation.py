@@ -1,14 +1,14 @@
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
+from pydantic import BaseModel, model_validator
+
+from exercises.task_007_structured_analysis.structured_analysis import AnalysisResult
 from exercises.task_008_llm_evaluation.llm_evaluation import (
     EvalCase,
     EvalResult,
     evaluation,
 )
-from pydantic import BaseModel, model_validator
-
-from exercises.task_007_structured_analysis.structured_analysis import AnalysisResult
 
 
 class BatchEvalResult(BaseModel):
@@ -53,7 +53,10 @@ def evaluate_batch(
     if len(cases) != len(unique_cases):
         raise ValueError("cases 中存在重复的 case_id")
     if len(cases) != len(outcomes):
-        raise ValueError("存在 缺失或多余 ID")
+        raise ValueError("存在缺失或多余 ID")
+    for case in cases:
+        if case.case_id not in outcomes.keys():
+            raise ValueError("存在缺失或多余 ID")
     if len(cases) == len(outcomes) == 0:
         return BatchEvalReport(
             total_cases=0,
@@ -89,7 +92,7 @@ def evaluate_batch(
             case_results.append(case_result)
             if result.passed == True:
                 passed_cases = passed_cases + 1
-    pass_rate = passed_cases / total_cases
+    pass_rate = passed_cases / total_cases if total_cases != 0 else None
     return BatchEvalReport(
         total_cases=total_cases,
         scored_cases=scored_cases,
