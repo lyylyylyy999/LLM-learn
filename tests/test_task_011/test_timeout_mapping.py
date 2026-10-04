@@ -153,7 +153,9 @@ def test_timeout_returns_safe_504_through_complete_offline_chain(
     assert sensitive_conversation not in caplog.text
     assert sensitive_sdk_detail not in caplog.text
     fake_client.responses.create.assert_called_once()
-    assert fake_client.responses.create.call_args.kwargs["input"] == sensitive_conversation
+    assert (
+        fake_client.responses.create.call_args.kwargs["input"] == sensitive_conversation
+    )
 
 
 def test_non_timeout_sdk_error_is_not_misclassified() -> None:
