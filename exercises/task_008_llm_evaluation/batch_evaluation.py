@@ -55,7 +55,7 @@ def evaluate_batch(
     if len(cases) != len(outcomes):
         raise ValueError("存在缺失或多余 ID")
     for case in cases:
-        if case.case_id not in outcomes.keys():
+        if case.case_id not in outcomes:
             raise ValueError("存在缺失或多余 ID")
     if len(cases) == len(outcomes) == 0:
         return BatchEvalReport(
