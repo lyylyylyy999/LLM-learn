@@ -110,15 +110,15 @@ def test_empty_files_produce_empty_report(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "rows",
+    ("rows", "error_kind"),
     [
-        [outcome_row("first", None), outcome_row("first", None)],
-        [outcome_row("extra", None)],
-        [],
-        [{"case_id": "first", "result": {"summary": "invalid"}}],
-        [{"case_id": "first"}],
-        [{"case_id": "first", "result": None, "unexpected": True}],
-        [{"case_id": " ", "result": None}],
+        ([outcome_row("first", None), outcome_row("first", None)], "duplicate"),
+        ([outcome_row("extra", None)], "id-mismatch"),
+        ([], "id-mismatch"),
+        ([{"case_id": "first", "result": {"summary": "invalid"}}], "line"),
+        ([{"case_id": "first"}], "line"),
+        ([{"case_id": "first", "result": None, "unexpected": True}], "line"),
+        ([{"case_id": " ", "result": None}], "line"),
     ],
     ids=[
         "duplicate-id",
@@ -131,7 +131,7 @@ def test_empty_files_produce_empty_report(tmp_path: Path) -> None:
     ],
 )
 def test_invalid_outcomes_fail_without_creating_report(
-    tmp_path: Path, rows: list[object]
+    tmp_path: Path, rows: list[object], error_kind: str
 ) -> None:
     case_path = tmp_path / "cases.jsonl"
     outcome_path = tmp_path / "outcomes.jsonl"
@@ -145,12 +145,16 @@ def test_invalid_outcomes_fail_without_creating_report(
         )
 
     assert str(raised.value)
-    if len(rows) > 1:
+    if error_kind == "duplicate":
         assert (
             "2" in str(raised.value)
             or "重复" in str(raised.value)
             or "duplicate" in str(raised.value).lower()
         )
+    elif error_kind == "id-mismatch":
+        assert "id" in str(raised.value).lower()
+    else:
+        assert "1" in str(raised.value)
     assert not report_path.exists()
 
 
